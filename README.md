@@ -92,7 +92,7 @@ http://localhost:3000
 | **Gemini API**   | AI Content Generation        |
 | **React Markdown** | Render AI-generated Markdown |
 | **Lucide React** | Icon Library                  |
-| **Zustand**      | State Management              |
+
 
 ---
 
