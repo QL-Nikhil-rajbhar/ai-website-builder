@@ -1,76 +1,139 @@
-# AI Powered Website Builder
+# 🚀 AI-Powered Website Builder
 
-This is an AI-powered website builder project built with [Next.js](https://nextjs.org), [Tailwind CSS](https://tailwindcss.com), and various other modern web technologies. The project leverages AI to assist in generating and enhancing website content and code.
+**Build Stunning Websites with AI Assistance**  
+Transform your ideas into fully functional websites using cutting-edge AI technology. This project leverages Next.js, Tailwind CSS, and advanced AI models to streamline web development.
 
-### Live Preview : [View](https://ai-website-builder-mu.vercel.app/)
+![Live Preview](https://ai-website-builder-mu.vercel.app/)
 
-## Getting Started
+![AI Website Builder Demo](https://via.placeholder.com/800x500.png?text=Demo+Screenshot+Here) *Add a screenshot of your live preview*
 
-First, clone the repository and navigate to the project directory:
+---
 
+## 🌟 Features
+
+### 🤖 AI-Powered Assistance
+- **Content Generation**: Automatically generate SEO-friendly text, images, and code snippets using AI.
+- **Code Synthesis**: Convert natural language prompts into React components with real-time previews.
+- **Smart Recommendations**: Get AI-driven suggestions for layout improvements and design enhancements.
+
+### 🎨 Design & Collaboration
+- **Theme Customization**: Switch between light/dark modes and customize themes effortlessly.
+- **Real-Time Collaboration**: Multiple users can edit simultaneously using [Convex](https://convex.dev) backend.
+- **Export Options**: Download generated code as ZIP files for seamless integration into other projects.
+
+### ⚡ Modern Tech Stack
+- **Next.js 14**: Server-side rendering, API routes, and optimized performance.
+- **Tailwind CSS**: Utility-first CSS framework for rapid UI development.
+- **AI Integration**: Powered by Gemini Flash 2.0 for intelligent content generation.
+
+---
+
+## 🛠️ Getting Started
+
+### Prerequisites
+- Node.js v18+
+- npm, yarn, or pnpm
+- Gemini API key (for AI features)
+
+### Installation
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/your-username/ai-website-builder.git
+   cd ai-website-builder
+
+2. Install Dependencies
 ```bash
-git clone <repository-url>
-cd ai-website-generator
+npm install  # or yarn/pnpm
 ```
 
-Install the dependencies:
-
-```bash
-npm install
+3. Set Up Environment Variables
+Create a `.env.local` file in the root directory and add the following:
+```env
+GEMINI_API_KEY=your_api_key_here
+NEXT_PUBLIC_CONVEX_URL=your_convex_url
 ```
 
-Run the development server:
-
+4. Start the Development Server
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+5. Visit the Application
+Open your browser and go to:
+```
+http://localhost:3000
+```
 
-## Project Structure
+---
 
-- `app/`: Contains the main application components and pages.
-- `components/`: Custom React components used throughout the project.
-- `configs/`: Configuration files for AI models and other settings.
-- `context/`: React context providers for managing global state.
-- `convex/`: Convex server functions and schema definitions.
-- `data/`: Static data and prompt definitions.
-- `lib/`: Utility functions.
-- `public/`: Public assets and static files.
-- `styles/`: Global styles and CSS files.
+# Project Structure
 
-## Features
+```bash
+.
+├── app/           # Next.js page routes and layouts
+├── components/    # Reusable React components (Header, AI Chat, etc.)
+├── config/        # AI model configurations and API settings
+├── context/       # React context providers (Theme, User, AI State)
+├── convex/        # Convex backend functions and database schema
+├── data/          # Static data and prompt templates
+├── lib/           # Utilities (API clients, theme handlers)
+├── public/        # Static assets (images, fonts)
+├── styles/        # Global CSS and Tailwind configurations
+```
+---
 
-- **AI Chat**: Interact with an AI assistant to generate and enhance website content.
-- **Code Generation**: Automatically generate React code based on user prompts.
-- **Theme Support**: Light and dark mode support using `next-themes`.
-- **Real-time Collaboration**: Use Convex for real-time data synchronization.
+# 🔧 Tech Stack
 
-## Tech Stack
+| Technology       | Purpose                          |
+|-----------------|--------------------------------|
+| **Next.js**      | Framework for SSR & Routing   |
+| **Tailwind CSS** | Styling & Responsive Design   |
+| **Convex**       | Real-time Database & Backend  |
+| **Gemini API**   | AI Content Generation        |
+| **React Markdown** | Render AI-generated Markdown |
+| **Lucide React** | Icon Library                  |
+| **Zustand**      | State Management              |
 
-- **Next.js**: A React framework for building server-side rendered applications.
-- **Tailwind CSS**: A utility-first CSS framework for rapid UI development.
-- **Convex**: A platform for real-time data synchronization and collaboration.
-- **Lucide React**: A library of icons for React applications.
-- **Axios**: A promise-based HTTP client for making API requests.
-- **React Markdown**: A component for rendering Markdown in React applications.
-- **JSZip**: A library for creating and managing ZIP files in JavaScript.
+---
 
-## Learn More
+# 📚 Documentation
 
-To learn more about Next.js, take a look at the following resources:
+- **[Next.js: Official Guide](https://nextjs.org/docs)**
+- **[Tailwind CSS: Documentation](https://tailwindcss.com/docs)**
+- **[Convex Setup: Getting Started](https://docs.convex.dev/quickstart)**
+- **[Gemini API: API Reference](https://ai.google.dev/docs)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+---
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+# 🚀 Deployment
+Deploy to Vercel in one click:
 
-## Deploy on Vercel
+[![Deploy](https://vercel.com/button)](https://vercel.com/new)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Required Environment Variables:
+- `GEMINI_API_KEY`
+- `NEXT_PUBLIC_CONVEX_URL`
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+# 🤝 Contributing
+We welcome contributions! Please follow these steps:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+---
+
+# 📜 License
+Distributed under the MIT License. See [LICENSE](LICENSE) for details.
+
+---
+
+# 🙌 Acknowledgements
+- **Google Gemini AI** for advanced language models
+- **Vercel** for hosting support
+- **Convex** for real-time backend infrastructure
+
