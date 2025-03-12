@@ -5,7 +5,7 @@ Transform your ideas into fully functional websites using cutting-edge AI techno
 
 [Live Preview](https://ai-website-builder-mu.vercel.app/)
 
-![AI Website Builder Demo](https://via.placeholder.com/800x500.png?text=Demo+Screenshot+Here) *Add a screenshot of your live preview*
+![AI Website Builder Demo](https://via.placeholder.com/800x500.png?text=Demo+Screenshot+Here) 
 
 ---
 
