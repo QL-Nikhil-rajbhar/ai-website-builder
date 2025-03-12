@@ -3,7 +3,7 @@
 **Build Stunning Websites with AI Assistance**  
 Transform your ideas into fully functional websites using cutting-edge AI technology. This project leverages Next.js, Tailwind CSS, and advanced AI models to streamline web development.
 
-![Live Preview](https://ai-website-builder-mu.vercel.app/)
+[Live Preview](https://ai-website-builder-mu.vercel.app/)
 
 ![AI Website Builder Demo](https://via.placeholder.com/800x500.png?text=Demo+Screenshot+Here) *Add a screenshot of your live preview*
 
