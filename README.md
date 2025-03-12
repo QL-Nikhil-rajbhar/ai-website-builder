@@ -2,6 +2,8 @@
 
 This is an AI-powered website builder project built with [Next.js](https://nextjs.org), [Tailwind CSS](https://tailwindcss.com), and various other modern web technologies. The project leverages AI to assist in generating and enhancing website content and code.
 
+### Live Preview : [View](https://ai-website-builder-mu.vercel.app/)
+
 ## Getting Started
 
 First, clone the repository and navigate to the project directory:
