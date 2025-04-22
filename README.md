@@ -91,7 +91,7 @@ http://localhost:3000
 | **Convex**       | Real-time Database & Backend  |
 | **Gemini API**   | AI Content Generation        |
 | **React Markdown** | Render AI-generated Markdown |
-| **Lucide React** | Icon Library                  |
+
 
 
 ---
