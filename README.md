@@ -4,6 +4,7 @@
 Transform your ideas into fully functional websites using cutting-edge AI technology. This project leverages Next.js, Tailwind CSS, and gemini AI model to streamline web development.
 
 [Live Preview](https://ai-website-builder-mu.vercel.app/)
+(AI requests fails on the deployment server, it works fine in the local machine)
 
 ![Image](https://github.com/user-attachments/assets/024b29be-3059-492d-bdcc-d82af0325e64)
 
