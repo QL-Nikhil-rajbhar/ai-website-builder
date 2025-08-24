@@ -1,20 +1,42 @@
-# 🚀 AI-Powered Website Builder
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/024b29be-3059-492d-bdcc-d82af0325e64">
+</p>
 
-**Build Stunning Websites with AI Assistance**  
-Transform your ideas into fully functional websites using cutting-edge AI technology. This project leverages Next.js, Tailwind CSS, and gemini AI model to streamline web development.
+<h1 align="center">🚀 AI-Powered Website Builder</h1>
 
-[Live Preview](https://ai-website-builder-mu.vercel.app/)
-(AI requests fails on the deployment server, it works fine in the local machine)
+<p align="center"><i>Build Stunning Websites with AI Assistance</i></p>
 
-![Image](https://github.com/user-attachments/assets/024b29be-3059-492d-bdcc-d82af0325e64)
+<p align="center">
+  <a href="https://opensource.org/licenses/MIT">
+    <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License MIT">
+  </a>
+  <img src="https://img.shields.io/github/last-commit/your-username/ai-website-builder" alt="Last Commit">
+  <img src="https://img.shields.io/github/languages/top/your-username/ai-website-builder" alt="Top Language">
+  <img src="https://img.shields.io/github/languages/count/your-username/ai-website-builder" alt="Languages">
+  <img src="https://img.shields.io/github/repo-size/your-username/ai-website-builder" alt="Repo Size">
+</p>
 
-![Image](https://github.com/user-attachments/assets/c30f1bfe-5098-4c22-ab2b-0537f1802322)
 
-![Image](https://github.com/user-attachments/assets/f7187bb9-1905-444c-9b0d-1fc47d8ec9c9)
-
-
+<p align="center">
+  <img src="https://img.shields.io/badge/Next.js-000000?style=for-the-badge&logo=nextdotjs&logoColor=white" />
+  <img src="https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" />
+  <img src="https://img.shields.io/badge/Convex-FF6F61?style=for-the-badge&logo=data:image/svg+xml;base64,... " />
+  <img src="https://img.shields.io/badge/Gemini_AI-4285F4?style=for-the-badge&logo=google&logoColor=white" />
+</p>
 
 ---
+
+
+
+## 🖼️ Project Preview [Live Preview](https://ai-website-builder-mu.vercel.app/)
+(AI requests fails on the deployment server, it works fine in the local machine)
+
+
+![Preview 1](https://github.com/user-attachments/assets/c30f1bfe-5098-4c22-ab2b-0537f1802322)
+![Preview 2](https://github.com/user-attachments/assets/f7187bb9-1905-444c-9b0d-1fc47d8ec9c9)
+
+---
+
 
 ## 🌟 Features
 
