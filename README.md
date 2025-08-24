@@ -10,10 +10,10 @@
   <a href="https://opensource.org/licenses/MIT">
     <img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License MIT">
   </a>
-  <img src="https://img.shields.io/github/last-commit/your-username/ai-website-builder" alt="Last Commit">
-  <img src="https://img.shields.io/github/languages/top/your-username/ai-website-builder" alt="Top Language">
-  <img src="https://img.shields.io/github/languages/count/your-username/ai-website-builder" alt="Languages">
-  <img src="https://img.shields.io/github/repo-size/your-username/ai-website-builder" alt="Repo Size">
+  <img src="https://img.shields.io/github/last-commit/Ratna-Babu/ai-website-builder" alt="Last Commit">
+  <img src="https://img.shields.io/github/languages/top/Ratna-Babu/ai-website-builder" alt="Top Language">
+  <img src="https://img.shields.io/github/languages/count/Ratna-Babu/ai-website-builder" alt="Languages">
+  <img src="https://img.shields.io/github/repo-size/Ratna-Babu/ai-website-builder" alt="Repo Size">
 </p>
 
 
