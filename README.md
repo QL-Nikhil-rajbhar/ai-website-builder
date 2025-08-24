@@ -5,6 +5,8 @@
 <h1 align="center">🚀 AI-Powered Website Builder</h1>
 
 <p align="center"><i>Build Stunning Websites with AI Assistance</i></p>
+<p  align="center">Transform your ideas into fully functional websites using cutting-edge AI technology.
+</p>
 
 <p align="center">
   <a href="https://opensource.org/licenses/MIT">
@@ -25,8 +27,6 @@
 </p>
 
 ---
-
-
 
 ## 🖼️ Project Preview [Live Preview](https://ai-website-builder-mu.vercel.app/)
 (AI requests fails on the deployment server, it works fine in the local machine)
