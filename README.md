@@ -82,9 +82,10 @@ GEMINI_API_KEY=your_api_key_here
 NEXT_PUBLIC_CONVEX_URL=your_convex_url
 ```
 
-4. Start the Development Server
+4. Start the Development Server and Convex Server
 ```bash
 npm run dev
+npx convex dev
 ```
 
 5. Visit the Application
