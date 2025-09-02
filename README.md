@@ -353,7 +353,6 @@ gitGraph
 
 <a href="https://github.com/Ratna-Babu/ai-website-builder/graphs/contributors">
   <img src="https://contrib.rocks/image?repo=Ratna-Babu/ai-website-builder" />
-  <img src="https://contrib.rocks/image?repo=Ratna-Babu/ai-website-builder" />
 </a>
 
 </div>
