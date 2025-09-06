@@ -60,6 +60,9 @@
   > 🌟 **AI Website Builder** is a cutting-edge platform that revolutionizes web development by combining the power of **Gemini Flash 2.0 AI** with modern web technologies. Transform your ideas into fully functional, beautiful websites using natural language - no coding experience required!
   
 </div>
+<div  align="center">
+     ⚠️ Note: The deployed live preview may not work as expected because code generation takes longer than Vercel’s API timeout limits.
+</div>
 
 <!-- Features Section with Animated Icons -->
 <img src="https://user-images.githubusercontent.com/73097560/115834477-dbab4500-a447-11eb-908a-139a6edaec5c.gif">
