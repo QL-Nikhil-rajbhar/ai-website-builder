@@ -43,12 +43,12 @@
       <td align="center" width="50%">
         <img src="https://github.com/user-attachments/assets/c30f1bfe-5098-4c22-ab2b-0537f1802322" alt="Preview 1" width="100%"/>
         <br/>
-        <sub><b>AI-Powered Interface</b></sub>
+        <sub><b>Real-time Code Generation</b></sub>
       </td>
       <td align="center" width="50%">
         <img src="https://github.com/user-attachments/assets/f7187bb9-1905-444c-9b0d-1fc47d8ec9c9" alt="Preview 2" width="100%"/>
         <br/>
-        <sub><b>Real-time Code Generation</b></sub>
+        <sub><b>In-built Live Preview</b></sub>
       </td>
     </tr>
   </table>
