@@ -331,6 +331,7 @@ features grid, and pricing cards"
   <img src="https://github.com/Anmol-Baranwal/Cool-GIFs-For-GitHub/assets/74038190/1a797ec4-50c0-43b1-b799-894e2493442d" width="35">
   Contributing
   <img src="https://github.com/Anmol-Baranwal/Cool-GIFs-For-GitHub/assets/74038190/1a797ec4-50c0-43b1-b799-894e2493442d" width="35">
+</a>
 </h2>
 
 <div align="center">
@@ -355,7 +356,7 @@ gitGraph
 ### 👥 Contributors
 
 <a href="https://github.com/Ratna-Babu/ai-website-builder/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=Ratna-Babu/ai-website-builder" />
+  <img src="https://contrib.rocks/image?repo=Ratna-Babu/ai-website-builder"/>
 </a>
 
 </div>
