@@ -426,7 +426,7 @@ Special thanks to these amazing projects and teams:
 </div>
 
 <div align="center">
-  **[⬆ Back to Top](#-ai-powered-website-builder)**
+  <b><a href="#-ai-powered-website-builder">⬆ Back to Top</a></b>
   
   <sub>Made with ❤️ by [Ratna Babu](https://github.com/Ratna-Babu) and contributors</sub>
   
