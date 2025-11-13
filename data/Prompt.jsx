@@ -64,7 +64,31 @@ className={\`p-4 \${active ? 'bg-blue-500' : 'bg-gray-200'}\`}
 - All components in /components/
 - Hardcoded example data
 - No routing needed
+- For each image, use a permanent Unsplash or Pexels URL that starts with 'https://images.unsplash.com/' or 'https://images.pexels.com/'.
+- Do not use sources that serve random, rotating, or expired images.
+- The URL should always load reliably in the browser and never change.
+- Add header, footer , navbar and other components as this will be a production application
+- Hero section : Engaging landing area with compelling visuals and messaging
+- don't use any forms, this is going to be a static website, without any backend
+-Hero Section / Landing Area should have
+ 1.Eye-catching headline and subtitle
+ 2. Call-to-action (CTA) buttons clearly visible
+ 3. Relevant, engaging images or background visuals
 
+-Header Section should have
+ 1.Logo and branding
+ 2.Primary navigation menu (navbar)
+ 3.Sticky or fixed positioning for easy access
+
+-Footer Section should have
+ 1.Contact info and copyright
+ 2.Social media links/icons
+ 3.Quick links (privacy, terms, about)
+
+-Consistent Visual Design
+-Cohesive color palette aligned with branding
+-Harmonized typography (font choices, sizes, spacing)
+-Consistent use of UI components and spacing
 Generate a beautiful, working single-page app.
 `,
 
@@ -74,7 +98,6 @@ Generate a beautiful, working single-page app.
     - No Context API, Firebase, or lib/utils
     - All arrays initialized with data
     - Check arrays before .map()
-    - Simple, self-contained components
     - Responsive design with Tailwind
     - Keep under 300 words
 
