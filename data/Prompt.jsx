@@ -63,13 +63,11 @@ className={\`p-4 \${active ? 'bg-blue-500' : 'bg-gray-200'}\`}
 - Single page app in App.js
 - All components in /components/
 - Hardcoded example data
-- No routing needed
-- For each image, use a permanent Unsplash or Pexels URL that starts with 'https://images.unsplash.com/' or 'https://images.pexels.com/'.
-- Do not use sources that serve random, rotating, or expired images.
-- The URL should always load reliably in the browser and never change.
+- Use images which are provided by the user.
 - Add header, footer , navbar and other components as this will be a production application
 - Hero section : Engaging landing area with compelling visuals and messaging
 - don't use any forms, this is going to be a static website, without any backend
+- Use the imageUrls provided to you for images
 -Hero Section / Landing Area should have
  1.Eye-catching headline and subtitle
  2. Call-to-action (CTA) buttons clearly visible
@@ -84,6 +82,7 @@ className={\`p-4 \${active ? 'bg-blue-500' : 'bg-gray-200'}\`}
  1.Contact info and copyright
  2.Social media links/icons
  3.Quick links (privacy, terms, about)
+ 4.Footer should stick to bottom of the screen when there isn't enough content
 
 -Consistent Visual Design
 -Cohesive color palette aligned with branding

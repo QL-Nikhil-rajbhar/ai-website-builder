@@ -6,52 +6,109 @@ import React, { useContext, useState } from 'react';
 import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
 import { useRouter } from 'next/navigation';
+import axios from 'axios';
+import { UrlsContext } from '@/context/UrlsContext';
 
 function Hero() {
     const [userInput, setUserInput] = useState('');
     const [isEnhancing, setIsEnhancing] = useState(false);
+    const [selectedImages, setSelectedImages] = useState([]);
+    const [uploading, setUploading] = useState(false);
     const { messages, setMessages } = useContext(MessagesContext);
+    const { urls, setUrls } = useContext(UrlsContext);
+
     const CreateWorkspace = useMutation(api.workspace.CreateWorkspace);
     const router = useRouter();
 
-    const onGenerate = async (input) => {
-        const msg = {
-            role: 'user',
-            content: input
-        }
-        setMessages(msg);
-        const workspaceID = await CreateWorkspace({
-            messages: [msg]
-        });
-        router.push('/workspace/' + workspaceID);
-    }
-
-    const enhancePrompt = async () => {
-        if (!userInput) return;
-        
-        setIsEnhancing(true);
-        try {
-            const response = await fetch('/api/enhance-prompt', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ prompt: userInput }),
-            });
-
-            const data = await response.json();
-            if (data.enhancedPrompt) {
-                setUserInput(data.enhancedPrompt);
-            }
-        } catch (error) {
-            console.error('Error enhancing prompt:', error);
-        } finally {
-            setIsEnhancing(false);
-        }
+    const handleFileChange = (e) => {
+        setSelectedImages(Array.from(e.target.files));
     };
 
-    const onSuggestionClick = (suggestion) => {
-        setUserInput(suggestion);
+    const IMGBB_API_KEY = 'aaa8c1e37a0fedd86ab07c15ec0e2052'; // Replace with your ImgBB key
+    const IMGBB_UPLOAD_URL = 'https://api.imgbb.com/1/upload';
+
+    async function uploadImagesAndGetUrls(files) {
+        const urls = [];
+        for (const file of files) {
+            const base64 = await readFileAsBase64(file);
+            const base64Data = base64.split(',')[1]; // strip data url prefix
+
+            const params = new URLSearchParams();
+            params.append('image', base64Data);
+
+            try {
+                const response = await axios.post(
+                    `${IMGBB_UPLOAD_URL}?key=${IMGBB_API_KEY}`,
+                    params.toString(),
+                    {
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                    }
+                );
+
+                if (response.data && response.data.data && response.data.data.url) {
+                    urls.push(response.data.data.url);
+                }
+            } catch (error) {
+                console.error("Image upload failed:", error);
+            }
+        }
+        return urls;
+    }
+
+    function readFileAsBase64(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
+    const onGenerate = async (input) => {
+        // If images are selected, send both prompt and images to backend
+        if (selectedImages.length > 0) {
+            setUploading(true);
+            const formData = new FormData();
+            formData.append('prompt', input);
+            selectedImages.forEach(file => formData.append('Images', file));
+
+            try {
+                // const response = await axios.post('/api/gen-ai-code', formData, {
+                //     headers: { 'Content-Type': 'multipart/form-data' }
+                // });
+
+                const msg = {
+                    role: 'user',
+                    content: input
+                };
+                const urls = await uploadImagesAndGetUrls(selectedImages);
+
+                setMessages(msg);
+                setUrls(urls)
+                const workspaceID = await CreateWorkspace({
+                    messages: [msg],
+                    urls: urls
+                });
+                router.push('/workspace/' + workspaceID);
+            } catch (error) {
+                console.error('Error:', error);
+            }
+            setUploading(false);
+            setSelectedImages([]);
+        } else {
+            // No images, just send text prompt as before
+            const msg = {
+                role: 'user',
+                content: input
+            };
+            setMessages(msg);
+            const workspaceID = await CreateWorkspace({
+                messages: [msg]
+            });
+            router.push('/workspace/' + workspaceID);
+        }
     };
 
     return (
@@ -89,26 +146,36 @@ function Hero() {
                                         value={userInput}
                                         onChange={(e) => setUserInput(e.target.value)}
                                         className="w-full bg-transparent border-2 border-electric-blue-500/30 rounded-lg p-5 text-gray-100 placeholder-electric-blue-500/60 focus:border-electric-blue-500 focus:ring-0 outline-none font-mono text-lg h-40 resize-none transition-all duration-300 hover:border-electric-blue-500/60"
-                                        disabled={isEnhancing}
+                                        disabled={isEnhancing || uploading}
                                     />
+                                    <div className="flex flex-col gap-2">
+                                        {/* File input for images */}
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            multiple
+                                            onChange={handleFileChange}
+                                            disabled={uploading || isEnhancing}
+                                            className="bg-gray-700 text-white rounded-xl px-2 py-2 border border-gray-600 cursor-pointer text-sm"
+                                        />
+                                        {selectedImages.length > 0 && (
+                                            <div className="text-xs text-green-400">
+                                                {selectedImages.length} image(s) selected
+                                            </div>
+                                        )}
+                                        {uploading && (
+                                            <div className="text-xs text-yellow-300">
+                                                Uploading...
+                                            </div>
+                                        )}
+                                    </div>
                                     <div className="flex flex-col gap-2">
                                         {userInput && (
                                             <>
                                                 <button
-                                                    onClick={enhancePrompt}
-                                                    disabled={isEnhancing}
-                                                    className={`flex items-center justify-center bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 rounded-xl px-4 py-4 transition-all duration-200 ${isEnhancing ? 'opacity-70 cursor-not-allowed' : ''}`}
-                                                >
-                                                    {isEnhancing ? (
-                                                        <Loader2 className="h-8 w-8 animate-spin" />
-                                                    ) : (
-                                                        <Wand2 className="h-8 w-8" />
-                                                    )}
-                                                </button>
-                                                <button
                                                     onClick={() => onGenerate(userInput)}
-                                                    disabled={isEnhancing}
-                                                    className={`flex items-center justify-center bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-xl px-4 py-4 transition-all duration-200 ${isEnhancing ? 'opacity-70 cursor-not-allowed' : ''}`}
+                                                    disabled={isEnhancing || uploading}
+                                                    className={`flex items-center justify-center bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 rounded-xl px-4 py-4 transition-all duration-200 ${isEnhancing || uploading ? 'opacity-70 cursor-not-allowed' : ''}`}
                                                 >
                                                     <Send className="h-8 w-8" />
                                                 </button>
@@ -120,24 +187,6 @@ function Hero() {
                                     <Link className="h-6 w-6 text-electric-blue-400/80 hover:text-electric-blue-400 transition-colors duration-200" />
                                 </div>
                             </div>
-                        </div>
-                    </div>
-
-                    {/* Holographic Suggestions Grid */}
-                    <div className="w-full max-w-5xl">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {Lookup?.SUGGSTIONS.map((suggestion, index) => (
-                                <button
-                                    key={index}
-                                    onClick={() => onSuggestionClick(suggestion)}
-                                    className="group relative p-6 bg-gray-900/50 hover:bg-gray-800/60 border-2 border-electric-blue-500/20 rounded-xl text-left transition-all duration-300 hover:border-electric-blue-500/40 hover:shadow-[0_0_20px_2px_rgba(59,130,246,0.2)]"
-                                >
-                                    <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_50%,#3b82f620)] opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-lg" />
-                                    <span className="text-electric-blue-400/80 group-hover:text-electric-blue-400 font-mono text-sm tracking-wide transition-colors duration-300">
-                                        {suggestion}
-                                    </span>
-                                </button>
-                            ))}
                         </div>
                     </div>
                 </div>

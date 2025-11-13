@@ -19,6 +19,7 @@ import { useParams } from 'next/navigation';
 import { api } from '@/convex/_generated/api';
 import { Loader2Icon, Download, Rocket } from 'lucide-react';
 import JSZip from 'jszip';
+import { UrlsContext } from '@/context/UrlsContext';
 
 
 
@@ -30,11 +31,15 @@ function CodeView() {
     const [activeTab, setActiveTab] = useState('code');
     const [files, setFiles] = useState(Lookup?.DEFAULT_FILE);
     const { messages, setMessages } = useContext(MessagesContext);
+    const { urls, setUrls } = useContext(UrlsContext);
+
     const UpdateFiles = useMutation(api.workspace.UpdateFiles);
     const convex = useConvex();
     const [loading, setLoading] = useState(false);
     const [deploying, setDeploying] = useState(false);
     const [deploymentUrl, setDeploymentUrl] = useState(null);
+    const [uploadedImages, setUploadedImages] = useState([]); // Array of base64 strings or URLs
+
 
 
 
@@ -105,51 +110,40 @@ function CodeView() {
 
     const GenerateAiCode = async () => {
         setLoading(true);
-        const PROMPT = JSON.stringify(messages) + " " + Prompt.CODE_GEN_PROMPT;
+        const PROMPT = messages.map(m => m.content).join("\n") + "\n" + `{imageUrls : ${urls} }` + Prompt.CODE_GEN_PROMPT;
 
-
-        console.log("Sending prompt:", PROMPT.substring(0, 100));
+        // New: include your uploaded images URLs/ base64s if any
+        // For demo, assuming `uploadedImages` holds your base64 or URLs
+        const payload = {
+            prompt: PROMPT,
+            urls: urls
+        };
+        console.log('payload is ', payload)
 
 
         try {
-            const result = await axios.post('/api/gen-ai-code', {
-                prompt: PROMPT
-            });
+            const result = await axios.post('/api/gen-ai-code', payload);
+            console.log('this was teh api call')
 
-
-            console.log("API Response:", result.data);
-
-
-            // Check if result.data has files
+            // handle response & update files as before
             if (!result.data?.files) {
-                console.error("No files in response:", result.data);
                 setLoading(false);
                 return;
             }
-
-
-            // Preprocess AI-generated files
             const processedAiFiles = preprocessFiles(result.data.files);
             const mergedFiles = { ...Lookup.DEFAULT_FILE, ...processedAiFiles };
             setFiles(mergedFiles);
-
-
-            console.log("Updating files in Convex:", result.data.files);
-
-
             await UpdateFiles({
                 workspaceId: id,
                 files: result.data.files
             });
-
-
             setLoading(false);
         } catch (error) {
-            console.error("GenerateAiCode error:", error);
-            console.error("Error response:", error.response?.data);
             setLoading(false);
+            // error logging as before
         }
-    }
+    };
+
 
     const deployToVercel = async () => {
         setDeploying(true);
