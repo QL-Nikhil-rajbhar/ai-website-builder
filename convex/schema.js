@@ -8,8 +8,10 @@ export default defineSchema({
         picture: v.string(),
         uid: v.string()
     }),
-    workspace:defineTable({
-        messages:v.any(),
-        fileData:v.optional(v.any()),
+    workspace: defineTable({
+        messages: v.any(),
+        urls: v.optional(v.any()),
+        fileData: v.optional(v.any()), // ✅ add this line
+
     })
 });

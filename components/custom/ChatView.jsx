@@ -9,11 +9,14 @@ import { useMutation } from 'convex/react';
 import Prompt from '@/data/Prompt';
 import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
+import { UrlsContext } from '@/context/UrlsContext';
 
 function ChatView() {
     const { id } = useParams();
     const convex = useConvex();
     const { messages, setMessages } = useContext(MessagesContext);
+    const { urls, setUrls } = useContext(UrlsContext);
+
     const [userInput, setUserInput] = useState();
     const [loading, setLoading] = useState(false);
     const UpdateMessages = useMutation(api.workspace.UpdateWorkspace);
@@ -27,6 +30,7 @@ function ChatView() {
             workspaceId: id
         });
         setMessages(result?.messages);
+        setUrls(result?.urls)
         console.log(result);
     }
 
@@ -74,18 +78,16 @@ function ChatView() {
                     {Array.isArray(messages) && messages?.map((msg, index) => (
                         <div
                             key={index}
-                            className={`p-4 rounded-lg ${
-                                msg.role === 'user' 
-                                    ? 'bg-gray-800/50 border border-gray-700' 
-                                    : 'bg-gray-800/30 border border-gray-700'
-                            }`}
+                            className={`p-4 rounded-lg ${msg.role === 'user'
+                                ? 'bg-gray-800/50 border border-gray-700'
+                                : 'bg-gray-800/30 border border-gray-700'
+                                }`}
                         >
                             <div className="flex items-start gap-3">
-                                <div className={`p-2 rounded-lg ${
-                                    msg.role === 'user' 
-                                        ? 'bg-blue-500/20 text-blue-400' 
-                                        : 'bg-purple-500/20 text-purple-400'
-                                }`}>
+                                <div className={`p-2 rounded-lg ${msg.role === 'user'
+                                    ? 'bg-blue-500/20 text-blue-400'
+                                    : 'bg-purple-500/20 text-purple-400'
+                                    }`}>
                                     {msg.role === 'user' ? 'You' : 'AI'}
                                 </div>
                                 <ReactMarkdown className="prose prose-invert flex-1 overflow-auto">
@@ -94,7 +96,7 @@ function ChatView() {
                             </div>
                         </div>
                     ))}
-                    
+
                     {loading && (
                         <div className="p-4 rounded-lg bg-gray-800/30 border border-gray-700">
                             <div className="flex items-center gap-3 text-gray-400">

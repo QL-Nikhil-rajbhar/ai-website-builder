@@ -1,23 +1,28 @@
-"use client"
+"use client";
 import React, { useState } from 'react';
 import { ThemeProvider as NextThemesProvider } from 'next-themes';
 import Header from '@/components/custom/Header';
 import { MessagesContext } from '@/context/MessagesContext';
+import { UrlsContext } from '@/context/UrlsContext';  // ✅ import it
 
-function Provider({children}) {
-  const [messages,setMessages]=useState();
+function Provider({ children }) {
+  const [messages, setMessages] = useState([]);
+  const [urls, setUrls] = useState([]);
+
   return (
     <div>
-      <MessagesContext.Provider value={{messages,setMessages}}>
-        <NextThemesProvider
+      <MessagesContext.Provider value={{ messages, setMessages }}>
+        <UrlsContext.Provider value={{ urls, setUrls }}>  {/* ✅ new provider */}
+          <NextThemesProvider
             attribute="class"
             defaultTheme="dark"
-            enableSystem 
+            enableSystem
             disableTransitionOnChange
-            >
-              <Header />
+          >
+            <Header />
             {children}
-        </NextThemesProvider>
+          </NextThemesProvider>
+        </UrlsContext.Provider>
       </MessagesContext.Provider>
     </div>
   );
