@@ -2,15 +2,15 @@ import { chatSession } from "@/configs/AiModel";
 import { NextResponse } from "next/server";
 
 export async function POST(req) {
-    const {prompt} =await req.json();
+    const { prompt } = await req.json();
+    console.log('request reached here')
 
-    try{
+    try {
         const result = await chatSession.sendMessage(prompt);
-        const AIResp=result.response.text();
+        const AIResp = result.response.text();
 
-        return NextResponse.json({result:AIResp})
-    }catch(e)
-    {
-        return NextResponse.json({error:e})
+        return NextResponse.json({ result: AIResp })
+    } catch (e) {
+        return NextResponse.json({ error: e })
     }
 }
