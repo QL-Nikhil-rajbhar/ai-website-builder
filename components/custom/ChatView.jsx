@@ -16,23 +16,22 @@ function ChatView() {
     const convex = useConvex();
     const { messages, setMessages } = useContext(MessagesContext);
     const { urls, setUrls } = useContext(UrlsContext);
-
-    const [userInput, setUserInput] = useState();
+    const [userInput, setUserInput] = useState("");
     const [loading, setLoading] = useState(false);
     const UpdateMessages = useMutation(api.workspace.UpdateWorkspace);
 
     useEffect(() => {
-        id && GetWorkSpaceData();
-    }, [id])
+        if (id) {
+            GetWorkSpaceData();
+        }
+    }, [id]);
 
     const GetWorkSpaceData = async () => {
-        const result = await convex.query(api.workspace.GetWorkspace, {
-            workspaceId: id
-        });
+        const result = await convex.query(api.workspace.GetWorkspace, { workspaceId: id });
         setMessages(result?.messages);
-        setUrls(result?.urls)
+        setUrls(result?.urls);
         console.log(result);
-    }
+    };
 
     useEffect(() => {
         if (messages?.length > 0) {
@@ -41,34 +40,32 @@ function ChatView() {
                 GetAiResponse();
             }
         }
-    }, [messages])
+    }, [messages]);
 
     const GetAiResponse = async () => {
         setLoading(true);
         const PROMPT = JSON.stringify(messages) + Prompt.CHAT_PROMPT;
-        const result = await axios.post('/api/ai-chat', {
-            prompt: PROMPT
-        });
+        const result = await axios.post('/api/ai-chat', { prompt: PROMPT });
 
         const aiResp = {
             role: 'ai',
             content: result.data.result
-        }
+        };
+
         setMessages(prev => [...prev, aiResp]);
+
         await UpdateMessages({
             messages: [...messages, aiResp],
             workspaceId: id
-        })
+        });
+
         setLoading(false);
-    }
+    };
 
     const onGenerate = (input) => {
-        setMessages(prev => [...prev, {
-            role: 'user',
-            content: input
-        }]);
-        setUserInput('');
-    }
+        setMessages(prev => [...prev, { role: 'user', content: input }]);
+        setUserInput("");
+    };
 
     return (
         <div className="relative h-[85vh] flex flex-col bg-gray-900">
@@ -87,12 +84,24 @@ function ChatView() {
                                 <div className={`p-2 rounded-lg ${msg.role === 'user'
                                     ? 'bg-blue-500/20 text-blue-400'
                                     : 'bg-purple-500/20 text-purple-400'
-                                    }`}>
+                                    }`}
+                                >
                                     {msg.role === 'user' ? 'You' : 'AI'}
                                 </div>
-                                <ReactMarkdown className="prose prose-invert flex-1 overflow-auto">
-                                    {msg.content}
-                                </ReactMarkdown>
+                                <div className="flex-1">
+                                    <ReactMarkdown className="prose prose-invert overflow-auto">
+                                        {msg.content}
+                                    </ReactMarkdown>
+
+                                    {/* Show numbered questions if present */}
+                                    {msg.questions && (
+                                        <ol className="mt-3 space-y-2 list-decimal list-inside text-cyan-300">
+                                            {msg.questions.map((q, i) => (
+                                                <li key={i} className="text-sm">{q}</li>
+                                            ))}
+                                        </ol>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     ))}
