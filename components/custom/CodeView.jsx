@@ -123,7 +123,7 @@ function CodeView() {
 
         try {
             const result = await axios.post('/api/gen-ai-code', payload);
-            console.log('this was teh api call')
+            console.log('this was teh api call', result)
 
             // handle response & update files as before
             if (!result.data?.files) {
