@@ -1,7 +1,7 @@
 "use client";
 import Lookup from '@/data/Lookup';
 import { MessagesContext } from '@/context/MessagesContext';
-import { ArrowRight, Link, Sparkles, Send, Wand2, Loader2 } from 'lucide-react';
+import { Link, Send, Loader2, Sparkles } from 'lucide-react';
 import React, { useContext, useState } from 'react';
 import { useMutation } from 'convex/react';
 import { api } from '@/convex/_generated/api';
@@ -12,6 +12,7 @@ import { UrlsContext } from '@/context/UrlsContext';
 function Hero() {
     const [userInput, setUserInput] = useState('');
     const [isEnhancing, setIsEnhancing] = useState(false);
+    const [loaderText, setLoaderText] = useState("Analyzing...");
     const [selectedImages, setSelectedImages] = useState([]);
     const [uploading, setUploading] = useState(false);
     const { messages, setMessages } = useContext(MessagesContext);
@@ -20,7 +21,7 @@ function Hero() {
     const CreateWorkspace = useMutation(api.workspace.CreateWorkspace);
     const router = useRouter();
 
-    // ⭐ NEW STATES FOR CLARIFICATION
+    // Clarify modal states
     const [showClarifyModal, setShowClarifyModal] = useState(false);
     const [clarifyingQuestions, setClarifyingQuestions] = useState([]);
     const [clarifyingAnswers, setClarifyingAnswers] = useState({});
@@ -46,16 +47,10 @@ function Hero() {
                 const response = await axios.post(
                     `${IMGBB_UPLOAD_URL}?key=${IMGBB_API_KEY}`,
                     params.toString(),
-                    {
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                        },
-                    }
+                    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
                 );
 
-                if (response.data?.data?.url) {
-                    urls.push(response.data.data.url);
-                }
+                if (response.data?.data?.url) urls.push(response.data.data.url);
             } catch (error) {
                 console.error("Image upload failed:", error);
             }
@@ -72,12 +67,12 @@ function Hero() {
         });
     }
 
-    // ⭐ NEW: Ask backend for clarifying questions
+    // NEW — ask backend for clarifying questions
     async function generateClarifyingQuestions(prompt) {
         setLoadingQuestions(true);
         try {
             const res = await axios.post("/api/clarify-question", { prompt });
-            setClarifyingQuestions(res.data.questions);
+            setClarifyingQuestions(res.data.questions || []);
             setShowClarifyModal(true);
         } catch (err) {
             console.error(err);
@@ -85,13 +80,22 @@ function Hero() {
         setLoadingQuestions(false);
     }
 
-    // When user clicks "Generate" button
+    // user clicks first generate button
     const onGenerateClick = async () => {
         if (!userInput.trim()) return;
         await generateClarifyingQuestions(userInput);
     };
 
-    // After user fills modal → generate final prompt
+    // LOADER SEQUENCE
+    const startLoaderSequence = () => {
+        setIsEnhancing(true);
+        setLoaderText("Analyzing...");
+
+        setTimeout(() => setLoaderText("Thinking..."), 3000);
+        setTimeout(() => setLoaderText("Enhancing..."), 6000);
+    };
+
+    // User finalizes modal
     const finalizeAndGenerate = async () => {
         const finalPrompt =
             userInput +
@@ -100,11 +104,13 @@ function Hero() {
                 .map(([q, a]) => `- ${q}: ${a}`)
                 .join("\n");
 
+        startLoaderSequence(); // 🔥 loader starts immediately
+
         await onGenerate(finalPrompt);
         setShowClarifyModal(false);
     };
 
-    // ORIGINAL onGenerate unchanged except for using finalPrompt
+    // ORIGINAL onGenerate flow — unchanged
     const onGenerate = async (input) => {
         if (selectedImages.length > 0) {
             setUploading(true);
@@ -132,12 +138,22 @@ function Hero() {
 
             router.push('/workspace/' + workspaceID);
         }
+
+        setIsEnhancing(false); // hide loader once navigation begins
     };
 
     return (
         <div className="min-h-screen bg-gray-950 relative overflow-hidden">
 
-            {/* ⭐ CLARIFY MODAL */}
+            {/* 🔥 FULL SCREEN LOADER OVERLAY */}
+            {isEnhancing && (
+                <div className="fixed inset-0 bg-black/70 flex flex-col items-center justify-center z-[9999]">
+                    <Loader2 className="h-16 w-16 text-blue-400 animate-spin mb-4" />
+                    <p className="text-xl text-blue-300 font-semibold">{loaderText}</p>
+                </div>
+            )}
+
+            {/* ⭐ CLARIFICATION MODAL */}
             {showClarifyModal && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[999]">
                     <div className="bg-gray-900 p-8 rounded-xl w-[500px] border border-blue-500 shadow-xl">
@@ -180,8 +196,7 @@ function Hero() {
                 </div>
             )}
 
-            {/* REST OF YOUR ORIGINAL HERO UI (UNCHANGED) */}
-
+            {/* REST OF HERO UI (unchanged) */}
             <div className="container mx-auto px-4 py-16 relative z-10">
                 <div className="flex flex-col items-center justify-center space-y-12">
 
@@ -230,6 +245,7 @@ function Hero() {
                                 <div className="flex justify-end mt-4">
                                     <Link className="h-6 w-6 text-electric-blue-400/80" />
                                 </div>
+
                             </div>
                         </div>
                     </div>
