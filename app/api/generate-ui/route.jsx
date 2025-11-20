@@ -29,7 +29,7 @@ export async function POST(req) {
         try {
             const chat = await v0.chats.create({
                 message: `Generate a Next.js + React component named ${componentName}. 
-Use Tailwind CSS. It should export a default React component. Do not use any placeholder images, use images if the user provides. If latitude and longitude is then fetch the image from google of that location. Other don't use any placeholder images.
+Use Tailwind CSS. It should export a default React component. Use only images which user provides.
 Prompt: ${prompt}`,
 
                 system: "You are an expert React/Next.js UI developer. Return code files.",
