@@ -9,9 +9,13 @@ export default defineSchema({
         uid: v.string()
     }),
     workspace: defineTable({
+        fileData: v.optional(v.any()),
         messages: v.any(),
         urls: v.optional(v.any()),
-        fileData: v.optional(v.any()), // ✅ add this line
 
+        createdAt: v.optional(v.string()),
+        updatedAt: v.optional(v.string()),
+        status: v.optional(v.string()),
     })
+
 });

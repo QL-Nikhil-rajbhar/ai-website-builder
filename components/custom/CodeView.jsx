@@ -1,6 +1,6 @@
 "use client"
-import React, { use, useContext } from 'react';
-import { useState } from 'react';
+import React, { useContext } from 'react';
+import { useState, useEffect } from 'react';
 import {
     SandpackProvider,
     SandpackLayout,
@@ -12,8 +12,6 @@ import Lookup from '@/data/Lookup';
 import { MessagesContext } from '@/context/MessagesContext';
 import axios from 'axios';
 import Prompt from '@/data/Prompt';
-import { useEffect } from 'react';
-import { UpdateFiles } from '@/convex/workspace';
 import { useConvex, useMutation } from 'convex/react';
 import { useParams } from 'next/navigation';
 import { api } from '@/convex/_generated/api';
@@ -21,33 +19,70 @@ import { Loader2Icon, Download, Rocket } from 'lucide-react';
 import JSZip from 'jszip';
 import { UrlsContext } from '@/context/UrlsContext';
 
-
-
 function CodeView() {
-
-
-
     const { id } = useParams();
     const [activeTab, setActiveTab] = useState('code');
-    const [files, setFiles] = useState(Lookup?.DEFAULT_FILE);
+    const [files, setFiles] = useState(Lookup?.DEFAULT_FILE || {});
     const { messages, setMessages } = useContext(MessagesContext);
     const { urls, setUrls } = useContext(UrlsContext);
 
-    const UpdateFiles = useMutation(api.workspace.UpdateFiles);
+    const updateFilesMutation = useMutation(api.workspace.UpdateFiles);
     const convex = useConvex();
     const [loading, setLoading] = useState(false);
     const [deploying, setDeploying] = useState(false);
     const [deploymentUrl, setDeploymentUrl] = useState(null);
-    const [uploadedImages, setUploadedImages] = useState([]); // Array of base64 strings or URLs
-
-
-
 
     useEffect(() => {
-        id && GetFiles();
-    }, [id])
+        if (id) GetFiles();
+    }, [id]);
 
+    // Robust preprocessing: accepts array or object and returns Sandpack-friendly map:
+    // { "/App.js": { code: "..." }, "/components/Footer.js": { code: "..." } }
+    const preprocessFiles = (incoming) => {
+        const out = {};
 
+        if (!incoming) return out;
+
+        // If backend returned an ARRAY of { filename, content } entries
+        if (Array.isArray(incoming)) {
+            incoming.forEach((entry) => {
+                if (!entry) return;
+                const rawName = entry.filename || entry.path || entry.fileName;
+                if (!rawName) return;
+                const name = rawName.startsWith('/') ? rawName : `/${rawName}`;
+                const contentObj = entry.content ?? entry.body ?? entry.code ?? "";
+                // contentObj might be a string or object { code: '...' }
+                if (typeof contentObj === 'string') {
+                    out[name] = { code: contentObj };
+                } else if (typeof contentObj === 'object') {
+                    // prefer code property if exists
+                    out[name] = { code: contentObj.code ?? JSON.stringify(contentObj, null, 2) };
+                } else {
+                    out[name] = { code: String(contentObj) };
+                }
+            });
+            return out;
+        }
+
+        // If backend returned an OBJECT map: { "/App.js": { code: "..." } } or { "/App.js": "..." }
+        if (typeof incoming === 'object') {
+            Object.entries(incoming).forEach(([path, content]) => {
+                if (!path) return;
+                const name = path.startsWith('/') ? path : `/${path}`;
+                if (typeof content === 'string') {
+                    out[name] = { code: content };
+                } else if (content && typeof content === 'object') {
+                    // If content already looks like { code: '...' }
+                    out[name] = { code: content.code ?? JSON.stringify(content, null, 2) };
+                } else {
+                    out[name] = { code: String(content) };
+                }
+            });
+            return out;
+        }
+
+        return out;
+    };
 
     const GetFiles = async () => {
         try {
@@ -56,101 +91,74 @@ function CodeView() {
             });
             console.log("Fetched workspace data:", result);
 
-
-            // Preprocess and validate files before merging
-            const processedFiles = preprocessFiles(result?.fileData || {});
+            // result.fileData may be array or object
+            const processedFiles = preprocessFiles(result?.fileData);
             const mergedFiles = { ...Lookup.DEFAULT_FILE, ...processedFiles };
             setFiles(mergedFiles);
         } catch (error) {
             console.error("Error fetching files:", error);
         }
-    }
-
-
-
-    // Add file preprocessing function
-    const preprocessFiles = (files) => {
-        if (!files || typeof files !== 'object') {
-            console.error("Invalid files object:", files);
-            return {};
-        }
-
-
-        const processed = {};
-        Object.entries(files).forEach(([path, content]) => {
-            // Ensure the file has proper content structure
-            if (typeof content === 'string') {
-                processed[path] = { code: content };
-            } else if (content && typeof content === 'object') {
-                if (!content.code && typeof content === 'object') {
-                    processed[path] = { code: JSON.stringify(content, null, 2) };
-                } else {
-                    processed[path] = content;
-                }
-            }
-        });
-
-
-        console.log("Processed files:", Object.keys(processed));
-        return processed;
-    }
-
-
+    };
 
     useEffect(() => {
         if (messages?.length > 0) {
-            const role = messages[messages?.length - 1].role;
+            const role = messages[messages.length - 1]?.role;
             if (role === 'user') {
                 GenerateAiCode();
             }
         }
-    }, [messages])
-
-
+    }, [messages]);
 
     const GenerateAiCode = async () => {
         setLoading(true);
         const PROMPT = messages.map(m => m.content).join("\n") + "\n" + `{imageUrls : ${urls} }` + Prompt.CODE_GEN_PROMPT;
 
-        // New: include your uploaded images URLs/ base64s if any
-        // For demo, assuming `uploadedImages` holds your base64 or URLs
         const payload = {
             prompt: PROMPT,
             urls: urls
         };
-        console.log('payload is ', payload)
-
+        console.log('payload is ', payload);
 
         try {
             const result = await axios.post('/api/gen-ai-code', payload);
-            console.log('this was teh api call', result)
+            console.log('AI call response', result);
 
-            // handle response & update files as before
             if (!result.data?.files) {
                 setLoading(false);
                 return;
             }
+
+            // Normalize AI files → sandpack map
             const processedAiFiles = preprocessFiles(result.data.files);
+
+            // Persist canonical array shape to Convex: [{ filename, content }]
+            const convexFilesArray = Object.entries(processedAiFiles).map(([filename, contentObj]) => ({
+                filename,
+                content: { code: contentObj.code ?? "" }
+            }));
+
+            // Update backend storage (mutation expects 'files' as any)
+            await updateFilesMutation({
+                workspaceId: id,
+                files: convexFilesArray
+            });
+
+            // Merge to UI (keep Lookup defaults)
             const mergedFiles = { ...Lookup.DEFAULT_FILE, ...processedAiFiles };
             setFiles(mergedFiles);
-            await UpdateFiles({
-                workspaceId: id,
-                files: result.data.files
-            });
             setLoading(false);
         } catch (error) {
+            console.error("GenerateAiCode error:", error);
             setLoading(false);
-            // error logging as before
         }
     };
-
 
     const deployToVercel = async () => {
         setDeploying(true);
         try {
             const deployFiles = {};
 
-            // Copy and rename to .jsx
+            // Copy and rename to .jsx when appropriate
             Object.entries(files).forEach(([filename, content]) => {
                 const cleanName = filename.startsWith('/') ? filename.slice(1) : filename;
 
@@ -161,19 +169,20 @@ function CodeView() {
 
                 if (
                     (cleanName.startsWith('components/') && cleanName.endsWith('.js')) ||
-                    cleanName === 'App.js'
+                    cleanName === 'App.js' || cleanName.endsWith('.jsx')
                 ) {
                     const fileContent = typeof content === 'string' ? content : content?.code || '';
                     if (fileContent) {
                         let targetName = cleanName;
-                        if (cleanName.endsWith('.js') && fileContent.includes('<')) {
-                            targetName = cleanName.replace('.js', '.jsx');
+                        if ((cleanName.endsWith('.js') || cleanName.endsWith('.jsx')) && fileContent.includes('<')) {
+                            targetName = targetName.replace(/\.js$/, '.jsx');
                         }
                         deployFiles[targetName] = fileContent;
                     }
                 }
             });
 
+            // Static skeleton files
             deployFiles['index.html'] = `<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -198,7 +207,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </React.StrictMode>
 )`;
 
-            // CLEAN index.css - no custom classes
             deployFiles['index.css'] = `@tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -242,7 +250,6 @@ export default defineConfig({
                 }
             }, null, 2);
 
-            // Fixed Tailwind config - specific paths only
             deployFiles['tailwind.config.js'] = `export default {
   content: [
     './index.html',
@@ -282,58 +289,24 @@ export default defineConfig({
         }
     };
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     const downloadFiles = async () => {
         try {
-            // Create a new JSZip instance
             const zip = new JSZip();
 
-
-
-            // Add each file to the zip
             Object.entries(files).forEach(([filename, content]) => {
-                // Handle the file content based on its structure
                 let fileContent;
                 if (typeof content === 'string') {
                     fileContent = content;
                 } else if (content && typeof content === 'object') {
-                    if (content.code) {
-                        fileContent = content.code;
-                    } else {
-                        // If it's an object without code property, stringify it
-                        fileContent = JSON.stringify(content, null, 2);
-                    }
+                    fileContent = content.code ?? JSON.stringify(content, null, 2);
                 }
 
-
-
-                // Only add the file if we have content
                 if (fileContent) {
-                    // Remove leading slash if present
                     const cleanFileName = filename.startsWith('/') ? filename.slice(1) : filename;
                     zip.file(cleanFileName, fileContent);
                 }
             });
 
-
-
-            // Add package.json with dependencies
             const packageJson = {
                 name: "generated-project",
                 version: "1.0.0",
@@ -347,14 +320,8 @@ export default defineConfig({
             };
             zip.file("package.json", JSON.stringify(packageJson, null, 2));
 
-
-
-            // Generate the zip file
             const blob = await zip.generateAsync({ type: "blob" });
 
-
-
-            // Create download link and trigger download
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -368,8 +335,6 @@ export default defineConfig({
         }
     };
 
-
-
     return (
         <div className='relative'>
             <div className='bg-[#181818] w-full p-2 border'>
@@ -381,17 +346,12 @@ export default defineConfig({
                         ${activeTab == 'code' && 'text-blue-500 bg-blue-500 bg-opacity-25 p-1 px-2 rounded-full'}`}>
                             Code</h2>
 
-
-
                         <h2 onClick={() => setActiveTab('preview')}
                             className={`text-sm cursor-pointer 
                         ${activeTab == 'preview' && 'text-blue-500 bg-blue-500 bg-opacity-25 p-1 px-2 rounded-full'}`}>
                             Preview</h2>
                     </div>
 
-
-
-                    {/* Action Buttons */}
                     <div className="flex gap-2">
                         <button
                             onClick={downloadFiles}
@@ -416,7 +376,6 @@ export default defineConfig({
                     </div>
                 </div>
 
-                {/* Show deployment URL if available */}
                 {deploymentUrl && (
                     <div className="mt-2 p-2 bg-green-900 bg-opacity-30 rounded-lg">
                         <p className="text-sm text-green-400">
@@ -425,7 +384,6 @@ export default defineConfig({
                     </div>
                 )}
             </div>
-
 
             {Object.keys(files).length > 0 ? (
                 <SandpackProvider
@@ -474,8 +432,6 @@ export default defineConfig({
                 </div>
             )}
 
-
-
             {loading && <div className='p-10 bg-gray-900 opacity-80 absolute top-0 
             rounded-lg w-full h-full flex items-center justify-center'>
                 <Loader2Icon className='animate-spin h-10 w-10 text-white' />
@@ -484,7 +440,5 @@ export default defineConfig({
         </div>
     );
 }
-
-
 
 export default CodeView;
