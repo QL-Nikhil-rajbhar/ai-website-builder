@@ -1,260 +1,350 @@
 "use client";
-import Lookup from '@/data/Lookup';
-import { MessagesContext } from '@/context/MessagesContext';
-import { Link, Send, Loader2, Sparkles } from 'lucide-react';
-import React, { useContext, useState } from 'react';
-import { useMutation } from 'convex/react';
-import { api } from '@/convex/_generated/api';
-import { useRouter } from 'next/navigation';
-import axios from 'axios';
-import { UrlsContext } from '@/context/UrlsContext';
 
-function Hero() {
-    const [userInput, setUserInput] = useState('');
-    const [isEnhancing, setIsEnhancing] = useState(false);
-    const [loaderText, setLoaderText] = useState("Analyzing...");
-    const [selectedImages, setSelectedImages] = useState([]);
-    const [uploading, setUploading] = useState(false);
+import React, { useState, useContext, useEffect, useRef } from "react";
+import { Sparkles, Send, Loader2, Link as IconLink } from "lucide-react";
+import axios from "axios";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { useRouter } from "next/navigation";
+import { MessagesContext } from "@/context/MessagesContext";
+import { UrlsContext } from "@/context/UrlsContext";
+
+/**
+ * Hero.jsx
+ * - Step-by-step chat clarifier on main page
+ * - Upload images or paste image URL
+ * - Asks clarifying questions one-by-one (server returns a question or enough=true)
+ * - When enough=true, shows "We have enough info..." message and allows user to click Generate
+ * - Loader sequence: "Analyzing..." (0-3s) -> "Thinking..." (3-6s) -> "Enhancing..." (6s until response)
+ * - After generation, it creates a Convex workspace and navigates to /workspace/{id}
+ *
+ * NOTE: Keep existing project logic (Convex workspace) intact. This component only replaces
+ * the old plain textarea-based flow with a chat clarifier flow.
+ */
+
+export default function Hero() {
+    const router = useRouter();
+    const CreateWorkspace = useMutation(api.workspace.CreateWorkspace);
     const { messages, setMessages } = useContext(MessagesContext);
     const { urls, setUrls } = useContext(UrlsContext);
 
-    const CreateWorkspace = useMutation(api.workspace.CreateWorkspace);
-    const router = useRouter();
+    // Chat state for clarifications
+    const [chatMessages, setChatMessages] = useState([]); // { role: 'user'|'ai', text: string, imageUrl?: string }
+    const [currentAnswer, setCurrentAnswer] = useState("");
+    const [loadingQuestion, setLoadingQuestion] = useState(false);
+    const [askingDone, setAskingDone] = useState(false); // becomes true when server says "enough"
+    const [lastQuestion, setLastQuestion] = useState(null);
 
-    // Clarify modal states
-    const [showClarifyModal, setShowClarifyModal] = useState(false);
-    const [clarifyingQuestions, setClarifyingQuestions] = useState([]);
-    const [clarifyingAnswers, setClarifyingAnswers] = useState({});
-    const [loadingQuestions, setLoadingQuestions] = useState(false);
+    // File/image upload
+    const [selectedFiles, setSelectedFiles] = useState([]);
+    const [uploadedImageUrls, setUploadedImageUrls] = useState([]); // returned urls or user-provided
+    const fileInputRef = useRef(null);
 
-    const handleFileChange = (e) => {
-        setSelectedImages(Array.from(e.target.files));
-    };
+    // Loader states for final generation
+    const [isEnhancing, setIsEnhancing] = useState(false);
+    const [loaderText, setLoaderText] = useState("Analyzing...");
 
-    const IMGBB_API_KEY = 'aaa8c1e37a0fedd86ab07c15ec0e2052';
-    const IMGBB_UPLOAD_URL = 'https://api.imgbb.com/1/upload';
+    // UI small states
+    const [errorMsg, setErrorMsg] = useState(null);
 
-    async function uploadImagesAndGetUrls(files) {
-        const urls = [];
-        for (const file of files) {
-            const base64 = await readFileAsBase64(file);
-            const base64Data = base64.split(',')[1];
-
-            const params = new URLSearchParams();
-            params.append('image', base64Data);
-
-            try {
-                const response = await axios.post(
-                    `${IMGBB_UPLOAD_URL}?key=${IMGBB_API_KEY}`,
-                    params.toString(),
-                    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
-                );
-
-                if (response.data?.data?.url) urls.push(response.data.data.url);
-            } catch (error) {
-                console.error("Image upload failed:", error);
-            }
+    useEffect(() => {
+        // If chat starts empty, prompt the user to enter the initial prompt (no auto-call)
+        if (chatMessages.length === 0) {
+            // No action by default
         }
-        return urls;
-    }
+    }, []);
 
-    function readFileAsBase64(file) {
-        return new Promise((resolve, reject) => {
+    // read file as base64 for upload; (we assume backend /api/clarify-question or /api/gen-ai-code accepts URLs or base64)
+    const readFileAsBase64 = (file) =>
+        new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => resolve(reader.result);
             reader.onerror = reject;
             reader.readAsDataURL(file);
         });
-    }
 
-    // NEW — ask backend for clarifying questions
-    async function generateClarifyingQuestions(prompt) {
-        setLoadingQuestions(true);
-        try {
-            const res = await axios.post("/api/clarify-question", { prompt });
-            setClarifyingQuestions(res.data.questions || []);
-            setShowClarifyModal(true);
-        } catch (err) {
-            console.error(err);
-        }
-        setLoadingQuestions(false);
-    }
-
-    // user clicks first generate button
-    const onGenerateClick = async () => {
-        if (!userInput.trim()) return;
-        await generateClarifyingQuestions(userInput);
+    const handleFileSelect = async (e) => {
+        const files = Array.from(e.target.files || []);
+        setSelectedFiles(files);
     };
 
-    // LOADER SEQUENCE
+    // If user supplies image URL (paste)
+    const addImageUrl = (url) => {
+        if (!url) return;
+        setUploadedImageUrls((s) => [...s, url]);
+    };
+
+    // Send initial prompt or answer to server to get next question
+    // history: chatMessages array
+    const askClarifyingQuestion = async (text) => {
+        if (!text || !text.trim()) return;
+        setErrorMsg(null);
+        setLoadingQuestion(true);
+
+        // push user's message locally
+        const userMsg = { role: "user", text, imageUrl: null };
+        setChatMessages((c) => [...c, userMsg]);
+        setCurrentAnswer("");
+
+        try {
+            // if user uploaded files, convert to base64 to attach (optional)
+            const imageData = [];
+            for (const f of selectedFiles) {
+                // read to base64
+                try {
+                    const data = await readFileAsBase64(f);
+                    imageData.push({ name: f.name, data });
+                } catch (e) {
+                    console.warn("Failed to read file", e);
+                }
+            }
+
+            const payload = {
+                prompt: text,
+                history: chatMessages.map((m) => ({ role: m.role, content: m.text })),
+                images: [...uploadedImageUrls], // these are URLs if user pasted them
+                imageData, // optional base64s
+            };
+
+            const res = await axios.post("/api/clarify-question", payload);
+            const data = res.data;
+
+            // Expect JSON: { question: string|null, enough: boolean, reason?: string }
+            if (data?.question) {
+                setChatMessages((c) => [...c, { role: "ai", text: data.question }]);
+                setLastQuestion(data.question);
+            } else if (data?.enough) {
+                setChatMessages((c) => [
+                    ...c,
+                    { role: "ai", text: "Okay — looks like we have enough info to generate a website." },
+                ]);
+                setAskingDone(true);
+            } else {
+                // fallback: show entire text as ai reply
+                const fallback = data?.reply || "Sorry, I couldn't generate a clarifying question.";
+                setChatMessages((c) => [...c, { role: "ai", text: fallback }]);
+            }
+        } catch (err) {
+            console.error("Clarify API error", err);
+            setErrorMsg("Failed to get clarifying question. Check server logs.");
+        } finally {
+            setLoadingQuestion(false);
+        }
+    };
+
+    // start loader sequence: analyzing -> thinking -> enhancing
     const startLoaderSequence = () => {
         setIsEnhancing(true);
         setLoaderText("Analyzing...");
-
+        // two timeouts: after 3s -> Thinking, after 6s -> Enhancing
         setTimeout(() => setLoaderText("Thinking..."), 3000);
         setTimeout(() => setLoaderText("Enhancing..."), 6000);
     };
 
-    // User finalizes modal
-    const finalizeAndGenerate = async () => {
+    // final generate function: will call /api/gen-ai-code and then create convex workspace (keep same flow)
+    const generateWebsite = async () => {
+        // Combine all chatMessages + uploadedImageUrls into a final prompt
         const finalPrompt =
-            userInput +
-            "\n\nADDITIONAL DETAILS:\n" +
-            Object.entries(clarifyingAnswers)
-                .map(([q, a]) => `- ${q}: ${a}`)
-                .join("\n");
+            chatMessages.map((m) => `${m.role === "user" ? "User:" : "AI:"} ${m.text}`).join("\n") +
+            "\n\nGENERATE_WEBSITE: Create a multi-file React + Tailwind UI project. Return JSON mapping filenames to code.";
 
-        startLoaderSequence(); // 🔥 loader starts immediately
+        try {
+            startLoaderSequence();
 
-        await onGenerate(finalPrompt);
-        setShowClarifyModal(false);
+            // Attach images (we'll send URLs only — the server expects images[] array)
+            const payload = {
+                prompt: finalPrompt,
+                images: uploadedImageUrls,
+            };
+
+            const res = await axios.post("/api/gen-ai-code", payload, { timeout: 120000 });
+            const data = res.data;
+
+            // Expect { files: { "/App.jsx": { code: "..." }, ... } }
+            if (!data?.files) {
+                setErrorMsg("Generator did not return files. See server logs.");
+                setIsEnhancing(false);
+                return;
+            }
+
+            // Save messages and urls to Convex workspace (as your app did previously)
+            const msg = { role: "user", content: finalPrompt };
+            setMessages(msg);
+            setUrls(uploadedImageUrls || []);
+
+            // Create workspace with files saved
+            const workspaceId = await CreateWorkspace({
+                messages: [msg],
+                urls: uploadedImageUrls || [],
+                files: data.files,
+            });
+
+            // navigate
+            router.push("/workspace/" + workspaceId);
+        } catch (err) {
+            console.error("Generation error", err);
+            setErrorMsg("Failed to generate website. Check server logs.");
+        } finally {
+            setIsEnhancing(false);
+        }
     };
 
-    // ORIGINAL onGenerate flow — unchanged
-    const onGenerate = async (input) => {
-        if (selectedImages.length > 0) {
-            setUploading(true);
-            const msg = { role: 'user', content: input };
-            const urls = await uploadImagesAndGetUrls(selectedImages);
-
-            setMessages(msg);
-            setUrls(urls);
-
-            const workspaceID = await CreateWorkspace({
-                messages: [msg],
-                urls
-            });
-
-            router.push('/workspace/' + workspaceID);
-            setUploading(false);
-            setSelectedImages([]);
-        } else {
-            const msg = { role: 'user', content: input };
-            setMessages(msg);
-
-            const workspaceID = await CreateWorkspace({
-                messages: [msg]
-            });
-
-            router.push('/workspace/' + workspaceID);
-        }
-
-        setIsEnhancing(false); // hide loader once navigation begins
+    // UI helpers
+    const handleSendClick = async () => {
+        // If there is a last question (asked by AI), treat currentAnswer as its response
+        if (!currentAnswer || !currentAnswer.trim()) return;
+        await askClarifyingQuestion(currentAnswer.trim());
     };
 
     return (
         <div className="min-h-screen bg-gray-950 relative overflow-hidden">
-
-            {/* 🔥 FULL SCREEN LOADER OVERLAY */}
+            {/* Loader overlay */}
             {isEnhancing && (
-                <div className="fixed inset-0 bg-black/70 flex flex-col items-center justify-center z-[9999]">
+                <div className="fixed inset-0 bg-black/70 z-[9999] flex flex-col items-center justify-center">
                     <Loader2 className="h-16 w-16 text-blue-400 animate-spin mb-4" />
                     <p className="text-xl text-blue-300 font-semibold">{loaderText}</p>
                 </div>
             )}
 
-            {/* ⭐ CLARIFICATION MODAL */}
-            {showClarifyModal && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[999]">
-                    <div className="bg-gray-900 p-8 rounded-xl w-[500px] border border-blue-500 shadow-xl">
-                        <h2 className="text-xl font-bold mb-4 text-blue-400">
-                            Additional Details Required
-                        </h2>
+            {/* Main container */}
+            <div className="container mx-auto px-4 py-16 relative z-10">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* Left: Chat clarifier */}
+                    <div className="bg-gray-900/80 p-6 rounded-lg border border-electric-blue-500/30">
+                        <div className="flex items-center gap-3 mb-4">
+                            <Sparkles className="h-6 w-6 text-electric-blue-400" />
+                            <h2 className="text-xl text-electric-blue-300 font-semibold">Build a website — let's get details</h2>
+                        </div>
 
-                        <div className="space-y-4 max-h-[300px] overflow-y-auto pr-2">
-                            {clarifyingQuestions.map((q, i) => (
-                                <div key={i}>
-                                    <p className="text-gray-300 mb-1">{q}</p>
-                                    <input
-                                        className="w-full bg-gray-800 p-2 rounded-md border border-gray-600 text-gray-100"
-                                        onChange={(e) =>
-                                            setClarifyingAnswers({
-                                                ...clarifyingAnswers,
-                                                [q]: e.target.value
-                                            })
-                                        }
-                                    />
+                        <div className="h-[60vh] overflow-y-auto p-3 bg-gray-800 rounded-md mb-4">
+                            {/* Render chatMessages */}
+                            {chatMessages.length === 0 && (
+                                <div className="text-gray-400">Start by describing your idea — the assistant will ask questions to clarify.</div>
+                            )}
+
+                            {chatMessages.map((m, i) => (
+                                <div
+                                    key={i}
+                                    className={`mb-3 ${m.role === "user" ? "text-right" : "text-left"}`}
+                                >
+                                    <div
+                                        className={`inline-block px-3 py-2 rounded-md ${m.role === "user" ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-100"
+                                            }`}
+                                    >
+                                        {m.text}
+                                        {m.imageUrl && (
+                                            <div className="mt-2">
+                                                <img src={m.imageUrl} alt="user-upload" className="max-w-xs rounded" />
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                             ))}
                         </div>
 
-                        <div className="flex justify-end gap-3 mt-6">
+                        {/* Image upload and URL */}
+                        <div className="flex gap-2 items-center mb-3">
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={handleFileSelect}
+                                className="text-sm text-gray-200"
+                            />
+                            <div className="flex-1">
+                                <input
+                                    placeholder="Or paste image URL (logo/hero)..."
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            addImageUrl(e.target.value.trim());
+                                            e.currentTarget.value = "";
+                                        }
+                                    }}
+                                    className="w-full bg-gray-800 text-gray-200 p-2 rounded"
+                                />
+                                {uploadedImageUrls.length > 0 && (
+                                    <div className="flex gap-2 mt-2 overflow-x-auto">
+                                        {uploadedImageUrls.map((u, idx) => (
+                                            <div key={idx} className="px-1">
+                                                <img src={u} alt={`uploaded-${idx}`} className="w-20 h-12 object-cover rounded" />
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Answer input */}
+                        <div className="flex gap-2">
+                            <input
+                                value={currentAnswer}
+                                onChange={(e) => setCurrentAnswer(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") handleSendClick();
+                                }}
+                                placeholder={loadingQuestion ? "Waiting..." : lastQuestion || "Describe your idea to start..."}
+                                className="flex-1 bg-gray-800 p-3 rounded text-gray-100"
+                                disabled={loadingQuestion}
+                            />
                             <button
-                                className="px-4 py-2 bg-gray-700 rounded-md hover:bg-gray-600"
-                                onClick={() => setShowClarifyModal(false)}
+                                onClick={handleSendClick}
+                                disabled={loadingQuestion || !currentAnswer.trim()}
+                                className="bg-gradient-to-r from-blue-500 to-purple-500 px-4 py-2 rounded"
                             >
-                                Cancel
-                            </button>
-                            <button
-                                className="px-4 py-2 bg-blue-600 rounded-md hover:bg-blue-700"
-                                onClick={finalizeAndGenerate}
-                            >
-                                Continue
+                                <Send className="h-5 w-5 text-white" />
                             </button>
                         </div>
+
+                        {/* If server decided we have enough info, show Generate CTA */}
+                        {askingDone && (
+                            <div className="mt-4 p-3 bg-green-900 bg-opacity-30 rounded">
+                                <p className="text-green-300 mb-2 font-semibold">
+                                    ✅ Okay — looks like we have enough info to generate a website.
+                                </p>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={generateWebsite}
+                                        className="bg-green-500 px-4 py-2 rounded hover:bg-green-600"
+                                    >
+                                        Generate Website
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            // allow user to continue clarifying if they wish
+                                            setAskingDone(false);
+                                            setLastQuestion(null);
+                                        }}
+                                        className="bg-gray-700 px-4 py-2 rounded"
+                                    >
+                                        Continue clarifying
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {errorMsg && <div className="mt-3 text-red-400">{errorMsg}</div>}
                     </div>
-                </div>
-            )}
 
-            {/* REST OF HERO UI (unchanged) */}
-            <div className="container mx-auto px-4 py-16 relative z-10">
-                <div className="flex flex-col items-center justify-center space-y-12">
+                    {/* Right: Placeholder for "preview / code" area (preserve preview functionality) */}
+                    <div className="bg-gray-900/80 p-6 rounded-lg border border-electric-blue-500/30">
+                        <div className="flex items-center justify-between mb-4">
+                            <h3 className="text-lg text-electric-blue-300 font-semibold">Generated Code & Preview</h3>
+                            <IconLink className="text-electric-blue-400" />
+                        </div>
 
-                    <div className="w-full max-w-3xl bg-gray-900/40 backdrop-blur-2xl rounded-xl border-2 border-electric-blue-500/40 shadow-[0_0_40px_5px_rgba(59,130,246,0.15)]">
-                        <div className="p-2 bg-gradient-to-r from-electric-blue-500/10 to-purple-500/10">
-                            <div className="bg-gray-900/80 p-6 rounded-lg">
-                                <div className="flex gap-4">
-                                    <textarea
-                                        placeholder="DESCRIBE YOUR VISION..."
-                                        value={userInput}
-                                        onChange={(e) => setUserInput(e.target.value)}
-                                        className="w-full bg-transparent border-2 border-electric-blue-500/30 rounded-lg p-5 text-gray-100 placeholder-electric-blue-500/60 focus:border-electric-blue-500 focus:ring-0 outline-none font-mono text-lg h-40 resize-none"
-                                        disabled={loadingQuestions || uploading}
-                                    />
+                        <div className="h-[60vh] overflow-auto bg-gray-800 rounded p-4">
+                            <div className="text-gray-400">
+                                After you press <strong>Generate Website</strong>, code files will be created and you'll be redirected to the workspace where the left-side editor and right-side preview are available (exactly like your current flow).
+                            </div>
 
-                                    <div className="flex flex-col gap-2">
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            multiple
-                                            onChange={handleFileChange}
-                                            disabled={loadingQuestions || uploading}
-                                            className="bg-gray-700 text-white rounded-xl px-2 py-2 border border-gray-600"
-                                        />
-
-                                        {loadingQuestions && (
-                                            <div className="text-xs text-yellow-400">
-                                                Analyzing prompt…
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="flex flex-col gap-2">
-                                        {userInput && (
-                                            <button
-                                                onClick={onGenerateClick}
-                                                disabled={loadingQuestions || uploading}
-                                                className="flex items-center justify-center bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl px-4 py-4"
-                                            >
-                                                <Send className="h-8 w-8" />
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-
-                                <div className="flex justify-end mt-4">
-                                    <Link className="h-6 w-6 text-electric-blue-400/80" />
-                                </div>
-
+                            <div className="mt-3 text-sm text-gray-300">
+                                Tip: After generation, you can continue to chat in the workspace to request changes (e.g., "use dark theme") — those are handled as follow-up messages and patch/update files accordingly.
                             </div>
                         </div>
                     </div>
-
                 </div>
             </div>
-
         </div>
     );
 }
-
-export default Hero;
