@@ -74,6 +74,7 @@ Use images array for logos/hero. If you cannot generate everything, return parti
             // return an error object that the client can show
             return NextResponse.json({ error: "Failed to parse generation JSON", raw });
         }
+        console.log("files are" + JSON.stringify(parsed))
 
         return NextResponse.json({ files: parsed.files });
     } catch (err) {

@@ -157,7 +157,9 @@ export default function Hero() {
                 images: uploadedImageUrls,
             };
 
-            const res = await axios.post("/api/gen-ai-code", payload, { timeout: 120000 });
+            const res = await axios.post("/api/gen-ai-code", payload, {
+                timeout: 300000, // 5 mins
+            });
             const data = res.data;
 
             // Expect { files: { "/App.jsx": { code: "..." }, ... } }
