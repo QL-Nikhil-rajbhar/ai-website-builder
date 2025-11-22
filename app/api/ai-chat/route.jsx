@@ -8,7 +8,7 @@ export async function POST(req) {
     try {
         const result = await chatSession.sendMessage(prompt);
         const AIResp = result.response.text();
-
+        console.log
         return NextResponse.json({ result: AIResp })
     } catch (e) {
         return NextResponse.json({ error: e })
