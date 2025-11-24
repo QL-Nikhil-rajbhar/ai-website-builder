@@ -1,75 +1,58 @@
 import { NextResponse } from "next/server";
 import { createClient } from "v0-sdk";
 
-const v0 = createClient({ apiKey: process.env.NEXT_PUBLIC_V0_API_KEY });
+const v0 = createClient({
+  apiKey: process.env.NEXT_PUBLIC_V0_API_KEY,
+});
 
 export async function POST(req) {
   try {
     const body = await req.json();
     const { prompt = "", images = [] } = body;
 
-    const systemPrompt = `
-You are a professional frontend engineer. Generate a complete React + Tailwind (Vite) project
-based on the user's requirements. Output ONLY valid JSON with the structure:
-{
-  "files": {
-    "/index.html": { "code": "..." },
-    "/main.jsx": { "code": "..." },
-    "/App.jsx": { "code": "..." },
-    "/components/Header.jsx": { "code": "..." },
-    "/styles/index.css": { "code": "..." }
-  }
-}
-Make sure the code is ready to run with Vite, React 18, and Tailwind. Ensure JSX is syntactically valid.
-Use images array for logos/hero. If you cannot generate everything, return partial files but still valid JSON.
-`;
-
-    const fullUser = `USER_PROMPT:\n${prompt}\n\nIMAGES:\n${images.join("\n")}`;
-
-    // Create chat
+    // 1️⃣ Create Chat
     const chat = await v0.chats.create({
-      message: fullUser,
-      // system: systemPrompt,
-      modelConfiguration: { modelId: "v0-1.5-md" },
+      message: `USER_PROMPT:\n${prompt}\n\nIMAGES:\n${images.join("\n")}`,
+      modelConfiguration: {
+        modelId: "v0-1.5-md",
+      },
     });
 
-    console.log("CHAT OBJECT:", JSON.stringify(chat));
+    if (!chat?.latestVersion) {
+      return NextResponse.json({
+        error: "No version returned from V0",
+        raw: chat,
+      });
+    }
 
-    // -----------------------------
-    // ⭐ NEW EXTRACTION LOGIC
-    // -----------------------------
-    // const versionFiles = chat?.latestVersion?.files;s
-    // console.log("chat is" + JSON.stringify(chat))
+    const version = chat.latestVersion;
 
-
-    // if (!versionFiles || versionFiles.length === 0) {
-    //     return NextResponse.json({
-    //         error: "No files found in latestVersion.files",
-    //         raw: chat
-    //     });
-    // }
-
-    // Convert v0 format into your required format:
-    // { "/path": { code: "..." } }
+    // 2️⃣ Extract files from chat.latestVersion.files
     const formatted = {};
 
-    // for (const file of versionFiles) {
-    //     if (file.name && file.content !== undefined) {
+    for (const f of version.files || []) {
+      if (!f.name) continue;
 
-    //         // 🔥 Force TSX → JSX (minimal change)
-    //         let fileName = file.name.replace(/\.tsx$/, ".jsx");
+      formatted[`/${f.name}`] = {
+        code: f.content ?? "",
+      };
+    }
 
-    //         const path = "/" + fileName;
-    //         formatted[path] = { code: file.content };
-    //     }
-    // }
-
-    console.log("formateed" + JSON.stringify(formatted))
-
-    return NextResponse.json({ files: formatted, demoUrl: chat.latestVersion.demoUrl, chatId: chat?.id, projectId: chat?.projectId, latestVersionId: chat?.latestVersion?.id });
+    // 3️⃣ Return the correct response
+    return NextResponse.json({
+      success: true,
+      files: formatted,
+      chatId: chat.id,
+      projectId: chat.projectId,
+      latestVersionId: version.id,
+      demoUrl: version.demoUrl,
+    });
 
   } catch (err) {
-    console.error("gen-ai-code route error:", err);
-    return NextResponse.json({ error: err.message || "Unknown error" });
+    console.error("❌ gen-ai-code error:", err);
+    return NextResponse.json(
+      { error: err.message || "Unknown error" },
+      { status: 500 }
+    );
   }
 }
