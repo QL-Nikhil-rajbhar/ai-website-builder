@@ -158,8 +158,9 @@ export default function Hero() {
             };
 
             const res = await axios.post("/api/gen-ai-code", payload, {
-                timeout: 300000, // 5 mins
+                timeout: 10 * 300000, // 5 mins
             });
+            console.log("result " + JSON.stringify(res))
             const data = res.data;
 
             // Expect { files: { "/App.jsx": { code: "..." }, ... } }
@@ -179,6 +180,11 @@ export default function Hero() {
                 messages: [msg],
                 urls: uploadedImageUrls || [],
                 files: data.files,
+                chatId: data.chatId,
+                demoUrl: data.demoUrl,
+                projectId: data.projectId,
+                latestVersionId: data.latestVersionId
+
             });
 
             // navigate
