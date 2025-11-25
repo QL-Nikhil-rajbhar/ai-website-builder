@@ -41,7 +41,7 @@ Use images list only for context.
             message: messages.map((m) => `${m.role}: ${m.content}`).join("\n"),
             system: systemPrompt,
             modelConfiguration: {
-                modelId: "v0-gpt-5", // <------ FIXED HERE
+                modelId: "v0-gpt-5",
             },
         });
 

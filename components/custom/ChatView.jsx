@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useEffect, useState } from "react";
+import { useContext, useEffect, useState, useRef } from "react";
 import { MessagesContext } from "@/context/MessagesContext";
 import { UrlsContext } from "@/context/UrlsContext";
 import { useParams } from "next/navigation";
@@ -11,12 +11,10 @@ import ReactMarkdown from "react-markdown";
 import axios from "axios";
 
 /**
- * NEW ChatView.jsx
- *
- * - ALWAYS uses chatId from workspace
- * - NEVER calls /api/gen-ai-code
- * - NEVER calls locator
- * - Every message = follow-up edit to the SAME V0 chat
+ * ChatView.jsx (FINAL — fixed hidden image URLs)
+ * - User uploads images → image URLs stored silently.
+ * - Image URLs NEVER appear in textarea or chat.
+ * - On send → hidden URLs appended internally (not visible to user).
  */
 
 export default function ChatView() {
@@ -38,11 +36,16 @@ export default function ChatView() {
     const [userInput, setUserInput] = useState("");
     const [loading, setLoading] = useState(false);
 
-    // --- Normalize message array -----------------------
+    // ⭐ store image URLs silently (never shown to UI)
+    const [uploadedImageUrls, setUploadedImageUrls] = useState([]);
+    const fileInputRef = useRef(null);
+
     const messages = Array.isArray(ctxMessages) ? ctxMessages : [];
     const setMessages = typeof ctxSetMessages === "function" ? ctxSetMessages : () => { };
 
-    // --- Load workspace ---------------------------------
+    // ============================================================
+    // Load workspace
+    // ============================================================
     useEffect(() => {
         if (!id) return;
 
@@ -55,10 +58,8 @@ export default function ChatView() {
                 setMessages(res?.messages || []);
                 setFiles(res?.fileData || {});
                 setChatId(res?.chatId || null);
-                setLatestVersionId(res?.latestVersionId)
-                setProjectId(res?.projectId)
-
-                console.log("[ChatView] Workspace loaded - chatId:", res?.chatId);
+                setProjectId(res?.projectId || null);
+                setLatestVersionId(res?.latestVersionId || null);
             } catch (err) {
                 console.error("[ChatView] failed loading workspace", err);
             }
@@ -66,33 +67,61 @@ export default function ChatView() {
     }, [id]);
 
     // ============================================================
-    // 🔥 MAIN EDIT FUNCTION — Always uses chatId
+    // Convert file → base64
     // ============================================================
-    async function runEdit(userMsg) {
-        if (!chatId) {
-            console.error("[ChatView] Missing chatId — cannot edit");
-            throw new Error("chatId missing in workspace");
+    const readFileAsBase64 = (file) =>
+        new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+
+    // ============================================================
+    // Handle image upload (SILENT)
+    // ============================================================
+    const handleFileSelect = async (e) => {
+        const files = Array.from(e.target.files || []);
+        if (!files.length) return;
+
+        for (const file of files) {
+            try {
+                const base64 = await readFileAsBase64(file);
+
+                const res = await axios.post("/api/upload-image", { base64 });
+                const url = res.data?.url;
+
+                if (url) {
+                    // ⭐ Do NOT show URL in UI — save silently
+                    setUploadedImageUrls((prev) => [...prev, url]);
+                }
+            } catch (err) {
+                console.error("Image upload failed", err);
+            }
         }
+    };
+
+    // ============================================================
+    // MAIN EDIT FUNCTION (always uses chatId)
+    // ============================================================
+    async function runEdit(finalMessage) {
+        if (!chatId) throw new Error("chatId missing in workspace");
 
         setLoading(true);
 
         try {
-            console.log("[ChatView] sending follow-up edit request...");
-
             const payload = {
-                userMessage: userMsg,
+                userMessage: finalMessage,
                 chatId,
+                images: uploadedImageUrls, // ⭐ pass hidden images
             };
 
             const editRes = await axios.post("/api/edit-code", payload, {
                 timeout: 120000,
             });
 
-            console.log("editRes:", editRes.data);
-
             const changedFiles = editRes.data.files || {};
 
-            // apply file updates only if any exists
             if (Object.keys(changedFiles).length > 0) {
                 const updatedFiles = { ...files, ...changedFiles };
                 setFiles(updatedFiles);
@@ -103,7 +132,6 @@ export default function ChatView() {
                 });
             }
 
-            // AI message
             const aiMessage = {
                 role: "ai",
                 content: `Changes applied. Preview updated.`,
@@ -112,14 +140,14 @@ export default function ChatView() {
             const newMessages = [...messages, aiMessage];
             setMessages(newMessages);
 
-            // 🔥 SAVE demoUrl + chatId
             await UpdateWorkspace({
                 workspaceId: id,
                 messages: newMessages,
                 chatId,
                 demoUrl: editRes.data.demoUrl || null,
+                fileData: changedFiles,
                 projectId,
-                latestVersionId: editRes?.data?.latestVersionId || null
+                latestVersionId: editRes?.data?.latestVersionId || null,
             });
 
         } catch (err) {
@@ -130,48 +158,56 @@ export default function ChatView() {
                 content: `Failed to edit: ${err.message}`,
             };
 
-            const newList = [...messages, errorMsg];
-            setMessages(newList);
+            const updated = [...messages, errorMsg];
+            setMessages(updated);
 
             await UpdateWorkspace({
                 workspaceId: id,
-                messages: newList,
+                messages: updated,
             });
         } finally {
             setLoading(false);
         }
     }
 
-
     // ============================================================
-    // SEND message handler
+    // SEND handler — builds hidden image metadata
     // ============================================================
     const onSend = async () => {
         if (!userInput.trim()) return;
 
-        const newUserMsg = { role: "user", content: userInput.trim() };
-        const updated = [...messages, newUserMsg];
+        // ⭐ SECRETLY append image URLs ONLY to finalMessage — not to UI
+        let hiddenBlock = "";
+        if (uploadedImageUrls.length > 0) {
+            hiddenBlock =
+                "\n\nIMAGE_URLS:\n" + uploadedImageUrls.map((u) => `- ${u}`).join("\n");
+        }
 
-        // Update UI immediately
+        const finalMessage = userInput.trim() + hiddenBlock;
+
+        // UI shows only user's clean message
+        const visibleUserMsg = { role: "user", content: userInput.trim() };
+        const updated = [...messages, visibleUserMsg];
+
         setMessages(updated);
         setUserInput("");
 
-        // Save message in convex
+        // Store message (with hidden image URLs)
         await UpdateWorkspace({
             workspaceId: id,
-            messages: updated,
+            messages: [...messages, { role: "user", content: finalMessage }],
         });
 
-        // Always run edit flow
-        await runEdit(newUserMsg.content);
+        await runEdit(finalMessage);
     };
 
     // ============================================================
-    // RENDER UI
+    // UI
     // ============================================================
     return (
         <div className="relative h-[85vh] flex flex-col bg-gray-900">
-            {/* Messages area */}
+
+            {/* Messages */}
             <div className="flex-1 overflow-y-auto p-4">
                 <div className="max-w-4xl mx-auto space-y-4">
                     {messages.map((msg, i) => (
@@ -214,25 +250,40 @@ export default function ChatView() {
             <div className="border-t border-gray-800 bg-gray-900/50 p-4">
                 <div className="max-w-4xl mx-auto">
                     <div className="bg-gray-800/50 border border-gray-700 rounded-xl p-4">
-                        <div className="flex gap-3">
-                            <textarea
-                                value={userInput}
-                                onChange={(e) => setUserInput(e.target.value)}
-                                placeholder="Ask to change theme, text, colors, layout..."
-                                className="w-full bg-gray-900/50 border border-gray-700 rounded-xl p-4 text-white resize-none h-32"
+                        <div className="flex flex-col gap-3">
+
+                            {/* ⭐ Hidden-only image upload */}
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={handleFileSelect}
+                                className="text-sm text-gray-300"
                             />
 
-                            <button
-                                onClick={onSend}
-                                disabled={loading}
-                                className="bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl px-4 flex items-center justify-center"
-                            >
-                                <Send className="h-6 w-6 text-white" />
-                            </button>
+                            <div className="flex gap-3">
+                                <textarea
+                                    value={userInput}
+                                    onChange={(e) => setUserInput(e.target.value)}
+                                    placeholder="Change layout, theme, add image, etc..."
+                                    className="w-full bg-gray-900/50 border border-gray-700 rounded-xl p-4 text-white resize-none h-32"
+                                />
+
+                                <button
+                                    onClick={onSend}
+                                    disabled={loading}
+                                    className="bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl px-4 flex items-center justify-center"
+                                >
+                                    <Send className="h-6 w-6 text-white" />
+                                </button>
+                            </div>
+
                         </div>
                     </div>
                 </div>
             </div>
+
         </div>
     );
 }

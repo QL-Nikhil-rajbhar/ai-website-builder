@@ -68,7 +68,6 @@ ${JSON.stringify(fileList, null, 2)}
         });
 
         const raw = chat?.latestMessage?.content || "";
-        console.log("🔍 LOCATOR RAW:", raw);
 
         const parsed = safeParseJSON(raw);
 
