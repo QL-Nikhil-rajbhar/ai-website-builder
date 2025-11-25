@@ -65,8 +65,39 @@ export default function Hero() {
 
     const handleFileSelect = async (e) => {
         const files = Array.from(e.target.files || []);
-        setSelectedFiles(files);
+        if (!files.length) return;
+
+        for (const file of files) {
+            try {
+                // 1. Convert file → base64
+                const base64 = await readFileAsBase64(file);
+
+                // 2. Upload to ImgBB
+                const res = await axios.post("/api/upload-image", { base64 });
+                const url = res.data?.url;
+
+                if (url) {
+                    // ⭐ Store silently — NOT visible to user
+                    setUploadedImageUrls(prev => [...prev, url]);
+
+                    // ⭐ Show image preview (but NOT the URL or text)
+                    setChatMessages(prev => [
+                        ...prev,
+                        {
+                            role: "user",
+                            text: "(uploaded image)",  // keeps same UI
+                            imageUrl: url
+                        }
+                    ]);
+                }
+            } catch (err) {
+                console.error("Image upload failed", err);
+            }
+        }
+
+        // ⭐ DO NOT modify currentAnswer, DO NOT show URL
     };
+
 
     // If user supplies image URL (paste)
     const addImageUrl = (url) => {
@@ -214,7 +245,7 @@ export default function Hero() {
                 </div>
             )}
 
-            {/* Main container */}
+
             <div className="container mx-auto px-4 py-16 relative z-10">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* Left: Chat clarifier */}
@@ -260,27 +291,7 @@ export default function Hero() {
                                 onChange={handleFileSelect}
                                 className="text-sm text-gray-200"
                             />
-                            <div className="flex-1">
-                                <input
-                                    placeholder="Or paste image URL (logo/hero)..."
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter") {
-                                            addImageUrl(e.target.value.trim());
-                                            e.currentTarget.value = "";
-                                        }
-                                    }}
-                                    className="w-full bg-gray-800 text-gray-200 p-2 rounded"
-                                />
-                                {uploadedImageUrls.length > 0 && (
-                                    <div className="flex gap-2 mt-2 overflow-x-auto">
-                                        {uploadedImageUrls.map((u, idx) => (
-                                            <div key={idx} className="px-1">
-                                                <img src={u} alt={`uploaded-${idx}`} className="w-20 h-12 object-cover rounded" />
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
+
                         </div>
 
                         {/* Answer input */}
@@ -334,23 +345,7 @@ export default function Hero() {
                         {errorMsg && <div className="mt-3 text-red-400">{errorMsg}</div>}
                     </div>
 
-                    {/* Right: Placeholder for "preview / code" area (preserve preview functionality) */}
-                    <div className="bg-gray-900/80 p-6 rounded-lg border border-electric-blue-500/30">
-                        <div className="flex items-center justify-between mb-4">
-                            <h3 className="text-lg text-electric-blue-300 font-semibold">Generated Code & Preview</h3>
-                            <IconLink className="text-electric-blue-400" />
-                        </div>
 
-                        <div className="h-[60vh] overflow-auto bg-gray-800 rounded p-4">
-                            <div className="text-gray-400">
-                                After you press <strong>Generate Website</strong>, code files will be created and you'll be redirected to the workspace where the left-side editor and right-side preview are available (exactly like your current flow).
-                            </div>
-
-                            <div className="mt-3 text-sm text-gray-300">
-                                Tip: After generation, you can continue to chat in the workspace to request changes (e.g., "use dark theme") — those are handled as follow-up messages and patch/update files accordingly.
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>

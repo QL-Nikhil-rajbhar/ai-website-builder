@@ -147,11 +147,11 @@ export default {
 `
         );
 
-        // 6) Public folder assets
-        zip.file("public/placeholder.svg", `<svg xmlns="http://www.w3.org/2000/svg"></svg>`);
-        zip.file("public/icon.svg", `<svg xmlns="http://www.w3.org/2000/svg"></svg>`);
-        zip.file("public/icon-dark-32x32.png", "");
-        zip.file("public/icon-light-32x32.png", "");
+        // // 6) Public folder assets
+        // zip.file("public/placeholder.svg", `<svg xmlns="http://www.w3.org/2000/svg"></svg>`);
+        // zip.file("public/icon.svg", `<svg xmlns="http://www.w3.org/2000/svg"></svg>`);
+        // zip.file("public/icon-dark-32x32.png", "");
+        // zip.file("public/icon-light-32x32.png", "");
 
         // 7) Detect & inject used shadcn/ui components
         const used = detectShadcn(files);

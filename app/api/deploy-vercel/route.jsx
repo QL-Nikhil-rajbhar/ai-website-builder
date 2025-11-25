@@ -15,10 +15,7 @@ export async function POST(req) {
                 { status: 400 }
             );
         }
-        console.log(`project id is ${projectId} chat id is ${chatId} version id is ${versionId}`)
 
-        console.log("🚀 Deploying via V0 Platform...");
-        console.log({ projectId, chatId, versionId });
 
         const deployment = await v0.deployments.create({
             projectId,
@@ -26,7 +23,6 @@ export async function POST(req) {
             versionId,
         });
 
-        console.log("✅ Deployment complete:", deployment);
 
         return NextResponse.json({
             success: true,
