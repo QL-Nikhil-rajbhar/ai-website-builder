@@ -278,56 +278,26 @@ artifacts:
             }
 
             setDeploying(true);
-            setDeployStatus("Uploading source code...");
+            setDeployStatus("Building and deploying...");
 
-            // 1) Upload ZIP to AWS deploy API
+            // Upload ZIP - API will build and deploy
             const formData = new FormData();
             formData.append("zipFile", zipBlobRef.current);
 
             const deployRes = await axios.post("/api/deploy-aws", formData);
 
             if (!deployRes.data?.success) {
-                alert("Failed to start deployment");
+                alert("Deployment failed");
                 setDeploying(false);
                 return;
             }
 
-            const buildId = deployRes.data.buildId;
-            const timestamp = deployRes.data.sourceKey.split('/')[1]; // Extract timestamp from source key
+            const url = deployRes.data.url;  // ✅ Get URL directly
 
-            setDeployStatus("Build started. Waiting for completion...");
-
-            // 2) Poll build status every 10 seconds
-            const pollInterval = setInterval(async () => {
-                try {
-                    const statusRes = await axios.get(
-                        `/api/deploy-status?buildId=${buildId}&timestamp=${timestamp}`
-                    );
-
-                    const { status, phase, url, logs } = statusRes.data;
-
-                    console.log("Build status:", status, "Phase:", phase);
-
-                    if (status === "SUCCEEDED") {
-                        clearInterval(pollInterval);
-                        setDeploying(false);
-                        setDeployStatus("");
-                        alert(`✅ Deployment successful!\n🌐 Your website: ${url}`);
-                        window.open(url, "_blank");
-                    } else if (status === "FAILED" || status === "STOPPED") {
-                        clearInterval(pollInterval);
-                        setDeploying(false);
-                        setDeployStatus("");
-                        alert(`❌ Build ${status.toLowerCase()}.\nCheck logs: ${logs}`);
-                        window.open(logs, "_blank");
-                    } else {
-                        // Still in progress
-                        setDeployStatus(`Build in progress... (${phase || status})`);
-                    }
-                } catch (pollErr) {
-                    console.error("Status poll error:", pollErr);
-                }
-            }, 10000); // Poll every 10 seconds
+            setDeploying(false);
+            setDeployStatus("");
+            alert(`✅ Deployment successful!\n🌐 ${url}`);
+            window.open(url, "_blank");
 
         } catch (err) {
             console.error("AWS deploy error:", err);

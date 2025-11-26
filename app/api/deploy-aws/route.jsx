@@ -177,12 +177,7 @@ export async function POST(req) {
         const url = `https://${CLOUDFRONT_DOMAIN}/projects/${timestamp}/`;
 
         console.log("✅ Deployment complete:", url);
-        const testDir = path.join(process.cwd(), "test-build");
-        if (fs.existsSync(testDir)) {
-            fs.rmSync(testDir, { recursive: true, force: true });
-        }
-        fs.cpSync(tempDir, testDir, { recursive: true });
-        console.log("📁 Build copied to:", testDir);
+
 
         return NextResponse.json({
             success: true,
