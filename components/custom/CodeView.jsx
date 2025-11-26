@@ -1,5 +1,5 @@
 // =======================================================
-// CodeView.jsx — FIXED VERSION (ZIP-based AWS Deployment)
+// CodeView.jsx — FIXED VERSION with Deployment URL Display
 // =======================================================
 "use client";
 
@@ -15,7 +15,7 @@ import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useParams } from "next/navigation";
 
-import { Loader2Icon, Download, Rocket } from "lucide-react";
+import { Loader2Icon, Download, Rocket, CheckCircle2, Copy, ExternalLink, X } from "lucide-react";
 import JSZip from "jszip";
 import axios from "axios";
 
@@ -83,6 +83,8 @@ export default function CodeView() {
     const zipBlobRef = useRef(null);
     const [deploying, setDeploying] = useState(false);
     const [deployStatus, setDeployStatus] = useState("");
+    const [deployedUrl, setDeployedUrl] = useState(null); // ✅ Store deployed URL
+    const [copied, setCopied] = useState(false);
 
     const files = useMemo(() => {
         if (!workspace) return {};
@@ -104,7 +106,7 @@ export default function CodeView() {
     ];
 
     // ------------------------------------------------------
-    // DOWNLOAD ZIP  (ALSO STORES ZIP BLOB FOR DEPLOYMENT)
+    // DOWNLOAD ZIP
     // ------------------------------------------------------
     const downloadProject = async () => {
         const zip = new JSZip();
@@ -160,69 +162,7 @@ module.exports = nextConfig;
 `
         );
 
-        // 5) Add buildspec.yml
-        zip.file(
-            "buildspec.yml",
-            `version: 0.2
-
-phases:
-  install:
-    runtime-versions:
-      nodejs: 18
-    commands:
-      - echo "Installing dependencies..."
-      - aws --version
-      - node --version
-      - npm --version
-
-  pre_build:
-    commands:
-      - echo "Downloading source code from S3..."
-      - echo "Bucket: $SOURCE_BUCKET"
-      - echo "Key: $SOURCE_KEY"
-      - aws s3 cp s3://$SOURCE_BUCKET/$SOURCE_KEY project.zip
-      - unzip project.zip -d ./project
-      - cd project
-      - echo "Source code extracted"
-      - ls -la
-
-  build:
-    commands:
-      - echo "Installing dependencies..."
-      - npm install --legacy-peer-deps
-      
-      - echo "Building Next.js static export..."
-      - npm run build
-      
-      - echo "Build complete, checking for out folder..."
-      - ls -la
-      - test -d out || (echo "❌ No out folder found!" && exit 1)
-
-  post_build:
-    commands:
-      - echo "Uploading build to S3..."
-      - aws s3 sync out/ s3://$DEPLOY_BUCKET/projects/$TIMESTAMP/ --delete --acl public-read
-      
-      - echo "Creating CloudFront invalidation..."
-      - |
-        INVALIDATION_ID=$(aws cloudfront create-invalidation \
-          --distribution-id $CLOUDFRONT_DISTRIBUTION_ID \
-          --paths "/projects/$TIMESTAMP/*" \
-          --query 'Invalidation.Id' \
-          --output text)
-      
-      - echo "CloudFront invalidation created: $INVALIDATION_ID"
-      - echo "✅ Deployment complete!"
-      - echo "🌐 Website URL: https://$CLOUDFRONT_DOMAIN/projects/$TIMESTAMP/"
-
-artifacts:
-  files:
-    - '**/*'
-  base-directory: project/out
-`
-        );
-
-        // 6) Add tsconfig.json
+        // 5) Add tsconfig.json
         zip.file(
             "tsconfig.json",
             `
@@ -246,7 +186,7 @@ artifacts:
 `
         );
 
-        // 7) Generate missing shadcn components (if used)
+        // 6) Generate missing shadcn components (if used)
         const used = detectShadcn(files);
         used.forEach((name) => {
             if (SHADCN_LIB[name]) {
@@ -254,11 +194,11 @@ artifacts:
             }
         });
 
-        // 8) Generate ZIP blob
+        // 7) Generate ZIP blob
         const blob = await zip.generateAsync({ type: "blob" });
         zipBlobRef.current = blob;
 
-        // 9) Trigger browser download
+        // 8) Trigger browser download
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -268,7 +208,7 @@ artifacts:
     };
 
     // ------------------------------------------------------
-    // AWS DEPLOY (ZIP UPLOAD + POLLING)
+    // AWS DEPLOY
     // ------------------------------------------------------
     const deployToAWS = async () => {
         try {
@@ -279,6 +219,7 @@ artifacts:
 
             setDeploying(true);
             setDeployStatus("Building and deploying...");
+            setDeployedUrl(null); // Clear previous URL
 
             // Upload ZIP - API will build and deploy
             const formData = new FormData();
@@ -292,12 +233,11 @@ artifacts:
                 return;
             }
 
-            const url = deployRes.data.url;  // ✅ Get URL directly
+            const url = deployRes.data.url;
 
             setDeploying(false);
             setDeployStatus("");
-            alert(`✅ Deployment successful!\n🌐 ${url}`);
-            window.open(url, "_blank");
+            setDeployedUrl(url); // ✅ Store URL for display
 
         } catch (err) {
             console.error("AWS deploy error:", err);
@@ -305,6 +245,15 @@ artifacts:
             setDeployStatus("");
             alert("Deployment failed: " + (err.response?.data?.error || err.message));
         }
+    };
+
+    // ------------------------------------------------------
+    // Copy to Clipboard
+    // ------------------------------------------------------
+    const copyToClipboard = () => {
+        navigator.clipboard.writeText(deployedUrl);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
     };
 
     // ------------------------------------------------------
@@ -329,7 +278,7 @@ artifacts:
                 <div className="flex gap-2">
                     <button
                         onClick={downloadProject}
-                        className="bg-blue-500 px-4 py-2 text-white"
+                        className="bg-blue-500 px-4 py-2 text-white rounded flex items-center gap-2"
                     >
                         <Download size={16} /> Download
                     </button>
@@ -337,7 +286,7 @@ artifacts:
                     <button
                         onClick={deployToAWS}
                         disabled={deploying}
-                        className="bg-green-600 px-4 py-2 text-white flex items-center gap-2"
+                        className="bg-green-600 px-4 py-2 text-white rounded flex items-center gap-2 disabled:opacity-50"
                     >
                         {deploying ? (
                             <Loader2Icon className="animate-spin h-5 w-5" />
@@ -348,6 +297,57 @@ artifacts:
                     </button>
                 </div>
             </div>
+
+            {/* ✅ Deployment Success Banner */}
+            {deployedUrl && (
+                <div className="bg-green-50 border border-green-200 p-4 mx-4 mt-4 rounded-lg flex items-start gap-3">
+                    <CheckCircle2 className="text-green-600 mt-1 flex-shrink-0" size={24} />
+                    <div className="flex-1">
+                        <h3 className="text-green-900 font-semibold mb-2">
+                            ✅ Deployment Successful!
+                        </h3>
+                        <p className="text-green-700 text-sm mb-3">
+                            Your website is now live and accessible at:
+                        </p>
+                        <div className="flex items-center gap-2 bg-white p-3 rounded border border-green-300">
+                            <code className="text-sm text-green-800 flex-1 break-all">
+                                {deployedUrl}
+                            </code>
+                            <button
+                                onClick={copyToClipboard}
+                                className="bg-green-600 text-white px-3 py-1.5 rounded hover:bg-green-700 flex items-center gap-2 flex-shrink-0"
+                            >
+                                {copied ? (
+                                    <>
+                                        <CheckCircle2 size={16} />
+                                        Copied!
+                                    </>
+                                ) : (
+                                    <>
+                                        <Copy size={16} />
+                                        Copy
+                                    </>
+                                )}
+                            </button>
+                            <a
+                                href={deployedUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 flex items-center gap-2 flex-shrink-0"
+                            >
+                                <ExternalLink size={16} />
+                                Visit
+                            </a>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => setDeployedUrl(null)}
+                        className="text-green-600 hover:text-green-800 flex-shrink-0"
+                    >
+                        <X size={20} />
+                    </button>
+                </div>
+            )}
 
             {activeTab === "code" && (
                 <SandpackProvider
