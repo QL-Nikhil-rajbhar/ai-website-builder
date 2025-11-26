@@ -24,8 +24,6 @@ export async function POST(req) {
     - Do NOT use external UI component libraries.
     - Build ALL UI components manually using Tailwind CSS only.
     - Use only .jsx files (never .tsx).
-
-    IMPORTANT — IMAGE HANDLING RULES:
     - ALWAYS use provided image URLs AS-IS.
     - NEVER download, save, or copy images.
     - NEVER store images in /public.
