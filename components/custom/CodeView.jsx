@@ -1,9 +1,9 @@
 // =======================================================
-// CodeView.jsx — FIXED VERSION (Download-ready Next.js ZIP)
+// CodeView.jsx — FIXED VERSION (ZIP-based AWS Deployment)
 // =======================================================
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useRef } from "react";
 import {
     SandpackProvider,
     SandpackLayout,
@@ -29,7 +29,6 @@ const ensureCodeString = (content) => {
     return String(content);
 };
 
-// Detect used shadcn/ui components
 function detectShadcn(files) {
     const REGEX = /@\/components\/ui\/([a-zA-Z0-9-_]+)/g;
     const found = new Set();
@@ -43,7 +42,6 @@ function detectShadcn(files) {
     return Array.from(found);
 }
 
-// Local default shadcn/ui library source
 const SHADCN_LIB = {
     button: `
 import * as React from "react";
@@ -82,24 +80,48 @@ export default function CodeView() {
 
     const [activeTab, setActiveTab] = useState("preview");
     const [previewLoading, setPreviewLoading] = useState(false);
+    const zipBlobRef = useRef(null);
+    const [deploying, setDeploying] = useState(false);
+    const [deployStatus, setDeployStatus] = useState("");
 
     const files = useMemo(() => {
         if (!workspace) return {};
         return workspace.fileData || {};
     }, [workspace]);
 
+    // 🚫 Forbidden files that break Next.js static export
+    const FORBIDDEN = [
+        "app/_global-error",
+        "app/_not-found",
+        "app/error",
+        "app/not-found",
+        "app/_error",
+        "/app/_global-error",
+        "/app/_not-found",
+        "/app/error",
+        "/app/not-found",
+        "/app/_error",
+    ];
+
     // ------------------------------------------------------
-    // DOWNLOAD ZIP (FIXED)
+    // DOWNLOAD ZIP  (ALSO STORES ZIP BLOB FOR DEPLOYMENT)
     // ------------------------------------------------------
     const downloadProject = async () => {
         const zip = new JSZip();
 
-        // 1) Add all AI-generated project files
+        // 1) Add project files (skip forbidden)
         Object.entries(files).forEach(([path, file]) => {
-            zip.file(path.replace(/^\//, ""), ensureCodeString(file));
+            const normalized = path.replace(/^\//, "");
+
+            if (FORBIDDEN.some((f) => normalized.startsWith(f))) {
+                console.log("Skipping forbidden file:", normalized);
+                return;
+            }
+
+            zip.file(normalized, ensureCodeString(file));
         });
 
-        // 2) Add lib/utils.ts (required by shadcn)
+        // 2) Add lib/utils.ts
         zip.file(
             "lib/utils.ts",
             `
@@ -108,11 +130,12 @@ export function cn(...inputs) {
 }
 `
         );
-        // 4) postcss.config.js (required for Tailwind v4)
+
+        // 3) Add postcss.config.js
         zip.file(
             "postcss.config.js",
             `
-export default {
+module.exports = {
   plugins: {
     "@tailwindcss/postcss": {},
   },
@@ -120,10 +143,80 @@ export default {
 `
         );
 
+        // 4) Add next.config.js
+        zip.file(
+            "next.config.js",
+            `const nextConfig = {
+    output: "export",
+    images: { unoptimized: true },
+};
+module.exports = nextConfig;
+`
+        );
 
+        // 5) Add buildspec.yml
+        zip.file(
+            "buildspec.yml",
+            `version: 0.2
 
+phases:
+  install:
+    runtime-versions:
+      nodejs: 18
+    commands:
+      - echo "Installing dependencies..."
+      - aws --version
+      - node --version
+      - npm --version
 
-        // 5) tsconfig
+  pre_build:
+    commands:
+      - echo "Downloading source code from S3..."
+      - echo "Bucket: $SOURCE_BUCKET"
+      - echo "Key: $SOURCE_KEY"
+      - aws s3 cp s3://$SOURCE_BUCKET/$SOURCE_KEY project.zip
+      - unzip project.zip -d ./project
+      - cd project
+      - echo "Source code extracted"
+      - ls -la
+
+  build:
+    commands:
+      - echo "Installing dependencies..."
+      - npm install --legacy-peer-deps
+      
+      - echo "Building Next.js static export..."
+      - npm run build
+      
+      - echo "Build complete, checking for out folder..."
+      - ls -la
+      - test -d out || (echo "❌ No out folder found!" && exit 1)
+
+  post_build:
+    commands:
+      - echo "Uploading build to S3..."
+      - aws s3 sync out/ s3://$DEPLOY_BUCKET/projects/$TIMESTAMP/ --delete --acl public-read
+      
+      - echo "Creating CloudFront invalidation..."
+      - |
+        INVALIDATION_ID=$(aws cloudfront create-invalidation \
+          --distribution-id $CLOUDFRONT_DISTRIBUTION_ID \
+          --paths "/projects/$TIMESTAMP/*" \
+          --query 'Invalidation.Id' \
+          --output text)
+      
+      - echo "CloudFront invalidation created: $INVALIDATION_ID"
+      - echo "✅ Deployment complete!"
+      - echo "🌐 Website URL: https://$CLOUDFRONT_DOMAIN/projects/$TIMESTAMP/"
+
+artifacts:
+  files:
+    - '**/*'
+  base-directory: project/out
+`
+        );
+
+        // 6) Add tsconfig.json
         zip.file(
             "tsconfig.json",
             `
@@ -147,13 +240,7 @@ export default {
 `
         );
 
-        // // 6) Public folder assets
-        // zip.file("public/placeholder.svg", `<svg xmlns="http://www.w3.org/2000/svg"></svg>`);
-        // zip.file("public/icon.svg", `<svg xmlns="http://www.w3.org/2000/svg"></svg>`);
-        // zip.file("public/icon-dark-32x32.png", "");
-        // zip.file("public/icon-light-32x32.png", "");
-
-        // 7) Detect & inject used shadcn/ui components
+        // 7) Generate missing shadcn components (if used)
         const used = detectShadcn(files);
         used.forEach((name) => {
             if (SHADCN_LIB[name]) {
@@ -161,8 +248,11 @@ export default {
             }
         });
 
-        // 8) Generate ZIP
+        // 8) Generate ZIP blob
         const blob = await zip.generateAsync({ type: "blob" });
+        zipBlobRef.current = blob;
+
+        // 9) Trigger browser download
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -172,20 +262,72 @@ export default {
     };
 
     // ------------------------------------------------------
-    // DEPLOY BUTTON
+    // AWS DEPLOY (ZIP UPLOAD + POLLING)
     // ------------------------------------------------------
-    const deployToVercel = async () => {
+    const deployToAWS = async () => {
         try {
-            const res = await axios.post("/api/deploy-vercel", {
-                projectId: workspace.projectId,
-                chatId: workspace.chatId,
-                versionId: workspace.latestVersionId,
-            });
+            if (!zipBlobRef.current) {
+                alert("Please click Download once before deploying.");
+                return;
+            }
 
-            alert(res.data?.url || "Deployment started!");
+            setDeploying(true);
+            setDeployStatus("Uploading source code...");
+
+            // 1) Upload ZIP to AWS deploy API
+            const formData = new FormData();
+            formData.append("zipFile", zipBlobRef.current);
+
+            const deployRes = await axios.post("/api/deploy-aws", formData);
+
+            if (!deployRes.data?.success) {
+                alert("Failed to start deployment");
+                setDeploying(false);
+                return;
+            }
+
+            const buildId = deployRes.data.buildId;
+            const timestamp = deployRes.data.sourceKey.split('/')[1]; // Extract timestamp from source key
+
+            setDeployStatus("Build started. Waiting for completion...");
+
+            // 2) Poll build status every 10 seconds
+            const pollInterval = setInterval(async () => {
+                try {
+                    const statusRes = await axios.get(
+                        `/api/deploy-status?buildId=${buildId}&timestamp=${timestamp}`
+                    );
+
+                    const { status, phase, url, logs } = statusRes.data;
+
+                    console.log("Build status:", status, "Phase:", phase);
+
+                    if (status === "SUCCEEDED") {
+                        clearInterval(pollInterval);
+                        setDeploying(false);
+                        setDeployStatus("");
+                        alert(`✅ Deployment successful!\n🌐 Your website: ${url}`);
+                        window.open(url, "_blank");
+                    } else if (status === "FAILED" || status === "STOPPED") {
+                        clearInterval(pollInterval);
+                        setDeploying(false);
+                        setDeployStatus("");
+                        alert(`❌ Build ${status.toLowerCase()}.\nCheck logs: ${logs}`);
+                        window.open(logs, "_blank");
+                    } else {
+                        // Still in progress
+                        setDeployStatus(`Build in progress... (${phase || status})`);
+                    }
+                } catch (pollErr) {
+                    console.error("Status poll error:", pollErr);
+                }
+            }, 10000); // Poll every 10 seconds
+
         } catch (err) {
-            console.error(err);
-            alert("Deployment failed");
+            console.error("AWS deploy error:", err);
+            setDeploying(false);
+            setDeployStatus("");
+            alert("Deployment failed: " + (err.response?.data?.error || err.message));
         }
     };
 
@@ -209,16 +351,28 @@ export default {
                 </div>
 
                 <div className="flex gap-2">
-                    <button onClick={downloadProject} className="bg-blue-500 px-4 py-2 text-white">
+                    <button
+                        onClick={downloadProject}
+                        className="bg-blue-500 px-4 py-2 text-white"
+                    >
                         <Download size={16} /> Download
                     </button>
-                    <button onClick={deployToVercel} className="bg-green-600 px-4 py-2 text-white">
-                        <Rocket size={16} /> Deploy
+
+                    <button
+                        onClick={deployToAWS}
+                        disabled={deploying}
+                        className="bg-green-600 px-4 py-2 text-white flex items-center gap-2"
+                    >
+                        {deploying ? (
+                            <Loader2Icon className="animate-spin h-5 w-5" />
+                        ) : (
+                            <Rocket size={16} />
+                        )}
+                        {deploying ? deployStatus || "Deploying..." : "Deploy to AWS"}
                     </button>
                 </div>
             </div>
 
-            {/* Sandpack Preview + Code View */}
             {activeTab === "code" && (
                 <SandpackProvider
                     files={files}
