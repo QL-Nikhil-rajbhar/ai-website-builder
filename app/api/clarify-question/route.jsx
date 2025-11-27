@@ -12,7 +12,7 @@ export async function POST(req) {
         const { prompt = "", history = [], images = [], imageData = [] } = body;
 
         const systemPrompt = `
-You are an assistant that asks clarifying questions to collect requirements for building a website.
+You are an assistant that asks clarifying questions to collect requirements for building a website. It is always going to be a race website, so ask questions accordingly
 Always output ONLY JSON.
 Valid responses:
 

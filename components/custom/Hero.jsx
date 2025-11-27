@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useContext, useEffect, useRef } from "react";
-import { Sparkles, Send, Loader2, Link as IconLink } from "lucide-react";
+import { Sparkles, Send, Loader2 } from "lucide-react";
 import axios from "axios";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -9,52 +9,107 @@ import { useRouter } from "next/navigation";
 import { MessagesContext } from "@/context/MessagesContext";
 import { UrlsContext } from "@/context/UrlsContext";
 
-/**
- * Hero.jsx
- * - Step-by-step chat clarifier on main page
- * - Upload images or paste image URL
- * - Asks clarifying questions one-by-one (server returns a question or enough=true)
- * - When enough=true, shows "We have enough info..." message and allows user to click Generate
- * - Loader sequence: "Analyzing..." (0-3s) -> "Thinking..." (3-6s) -> "Enhancing..." (6s until response)
- * - After generation, it creates a Convex workspace and navigates to /workspace/{id}
- *
- * NOTE: Keep existing project logic (Convex workspace) intact. This component only replaces
- * the old plain textarea-based flow with a chat clarifier flow.
- */
-
 export default function Hero() {
     const router = useRouter();
     const CreateWorkspace = useMutation(api.workspace.CreateWorkspace);
     const { messages, setMessages } = useContext(MessagesContext);
     const { urls, setUrls } = useContext(UrlsContext);
 
-    // Chat state for clarifications
-    const [chatMessages, setChatMessages] = useState([]); // { role: 'user'|'ai', text: string, imageUrl?: string }
+    const [chatMessages, setChatMessages] = useState([]);
     const [currentAnswer, setCurrentAnswer] = useState("");
     const [loadingQuestion, setLoadingQuestion] = useState(false);
-    const [askingDone, setAskingDone] = useState(false); // becomes true when server says "enough"
     const [lastQuestion, setLastQuestion] = useState(null);
 
-    // File/image upload
-    const [selectedFiles, setSelectedFiles] = useState([]);
-    const [uploadedImageUrls, setUploadedImageUrls] = useState([]); // returned urls or user-provided
+    const [uploadedImageUrls, setUploadedImageUrls] = useState([]);
     const fileInputRef = useRef(null);
 
-    // Loader states for final generation
+    const [firstname, setFirstname] = useState("");
+    const [races, setRaces] = useState([]);
+    const [showRaceList, setShowRaceList] = useState(false);
+    const [selectedRace, setSelectedRace] = useState(null); // ✅ Store selected race
+
     const [isEnhancing, setIsEnhancing] = useState(false);
     const [loaderText, setLoaderText] = useState("Analyzing...");
-
-    // UI small states
     const [errorMsg, setErrorMsg] = useState(null);
 
+    const [initialLoading, setInitialLoading] = useState(true);
+    const [waitingForResponse, setWaitingForResponse] = useState(false);
+    const [isSending, setIsSending] = useState(false);
+    const [showGenerateButton, setShowGenerateButton] = useState(false); // ✅ Always show after race selection
+
+    const chatEndRef = useRef(null);
+
+    const AUTH_TOKEN =
+        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5MDFhMjVjZWU5NmQ5ODg5MDFlYTU3YyIsImZpcnN0X25hbWUiOiJuaWtoaWwiLCJsYXN0X25hbWUiOiJuaWtoaWwucmFqYmhhckBxdW9ra2FsYWJzLmNvbSIsInByb2ZpbGVfaW1hZ2UiOm51bGwsImVtYWlsIjoibmlraGlsLnJhamJoYXJAcXVva2thbGFicy5jb20iLCJwaG9uZV9jb2RlIjpudWxsLCJwaG9uZV9jb3VudHJ5IjpudWxsLCJwaG9uZSI6bnVsbCwic2lnbnVwX21ldGhvZCI6IkVNQUlMIiwicm9sZSI6IlJBQ0VfRElSRUNUT1IiLCJpc19vbmJvYXJkZWQiOnRydWUsImxvZ2luX3R5cGUiOiJub3JtYWwiLCJpc19kZWxldGVkIjpmYWxzZSwibG9naW5fcGxhdGZvcm0iOiJXRUIiLCJlbWVyZ2VuY3lfY29udGFjdF9pbmZvIjp7Im5hbWUiOiIiLCJwaG9uZSI6IiIsInBob25lX2NvZGUiOm51bGwsInBob25lX2NvdW50cnkiOm51bGx9LCJpYXQiOjE3NjE3MTQ4MDEsImV4cCI6MTc2NDMwNjgwMX0.Zneq1ebUl_xWdy9fGqZdAfQPW1nTV9TjeyIbqqjz7PY";
+
     useEffect(() => {
-        // If chat starts empty, prompt the user to enter the initial prompt (no auto-call)
-        if (chatMessages.length === 0) {
-            // No action by default
+        chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [chatMessages, waitingForResponse]);
+
+    // =============================
+    // FETCH USER + RACES ON LOAD
+    // =============================
+    useEffect(() => {
+        async function fetchUserAndRaces() {
+            try {
+                setInitialLoading(true);
+
+                const res = await axios.get(
+                    "http://localhost:3000/api/v2/director-my-races?searchText=",
+                    {
+                        headers: {
+                            AuthorizationToken: AUTH_TOKEN,
+                            "Content-Type": "application/json",
+                        },
+                    }
+                );
+
+                const data = res.data?.data;
+                const name = data?.race_director_name?.split(" ")[0] || "there";
+                const raceList = data?.list || [];
+
+                setFirstname(name);
+                setRaces(raceList);
+
+                setChatMessages([
+                    {
+                        role: "ai",
+                        text: `Hi ${name}, for what race would you like to build the website?`,
+                    },
+                ]);
+
+                setShowRaceList(true);
+            } catch (err) {
+                console.error("Failed to fetch races", err);
+                setErrorMsg("Failed to load races. Please refresh the page.");
+            } finally {
+                setInitialLoading(false);
+            }
         }
+
+        fetchUserAndRaces();
     }, []);
 
-    // read file as base64 for upload; (we assume backend /api/clarify-question or /api/gen-ai-code accepts URLs or base64)
+    // =============================
+    // HELPER: Format race details for AI
+    // =============================
+    const formatRaceDetails = (race) => {
+        return `
+Race Details:
+- Title: ${race.title}
+- Date: ${race.local_date_time}
+- Timezone: ${race.time_zone}
+- Status: ${race.status}
+- Race URL: ${race.race_url}
+- Events: ${race.events.map(e => e.name).join(", ")}
+- Virtual Race: ${race.is_virtual_race ? "Yes" : "No"}
+- Logo: ${race.logo || "No logo"}
+`.trim();
+    };
+
+    // =============================
+    // IMAGE UPLOAD
+    // =============================
     const readFileAsBase64 = (file) =>
         new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -69,283 +124,326 @@ export default function Hero() {
 
         for (const file of files) {
             try {
-                // 1. Convert file → base64
                 const base64 = await readFileAsBase64(file);
-
-                // 2. Upload to ImgBB
                 const res = await axios.post("/api/upload-image", { base64 });
                 const url = res.data?.url;
 
                 if (url) {
-                    // ⭐ Store silently — NOT visible to user
-                    setUploadedImageUrls(prev => [...prev, url]);
+                    setUploadedImageUrls((prev) => [...prev, url]);
 
-                    // ⭐ Show image preview (but NOT the URL or text)
-                    setChatMessages(prev => [
+                    setChatMessages((prev) => [
                         ...prev,
                         {
                             role: "user",
-                            text: "(uploaded image)",  // keeps same UI
-                            imageUrl: url
-                        }
+                            text: "(uploaded image)",
+                            imageUrl: url,
+                        },
                     ]);
                 }
             } catch (err) {
                 console.error("Image upload failed", err);
             }
         }
-
-        // ⭐ DO NOT modify currentAnswer, DO NOT show URL
     };
 
+    // =============================
+    // RACE SELECTION
+    // =============================
+    const selectRace = async (race) => {
+        if (waitingForResponse || isSending) return;
 
-    // If user supplies image URL (paste)
-    const addImageUrl = (url) => {
-        if (!url) return;
-        setUploadedImageUrls((s) => [...s, url]);
+        setSelectedRace(race); // ✅ Store race
+        setShowRaceList(false);
+        setShowGenerateButton(true); // ✅ Show generate button immediately
+
+        const raceDetails = formatRaceDetails(race);
+        const message = `I want to create a website for "${race.title}".`;
+
+        // Add user selection message
+        setChatMessages((prev) => [
+            ...prev,
+            { role: "user", text: message },
+        ]);
+
+        // Ask design-related clarification with race context
+        await askClarifyingQuestion(message, raceDetails);
     };
 
-    // Send initial prompt or answer to server to get next question
-    // history: chatMessages array
-    const askClarifyingQuestion = async (text) => {
-        if (!text || !text.trim()) return;
-        setErrorMsg(null);
+    // =============================
+    // CLARIFY API
+    // =============================
+    const askClarifyingQuestion = async (text, raceContext = "") => {
+        setWaitingForResponse(true);
         setLoadingQuestion(true);
 
-        // push user's message locally
-        const userMsg = { role: "user", text, imageUrl: null };
-        setChatMessages((c) => [...c, userMsg]);
-        setCurrentAnswer("");
-
         try {
-            // if user uploaded files, convert to base64 to attach (optional)
-            const imageData = [];
-            for (const f of selectedFiles) {
-                // read to base64
-                try {
-                    const data = await readFileAsBase64(f);
-                    imageData.push({ name: f.name, data });
-                } catch (e) {
-                    console.warn("Failed to read file", e);
-                }
-            }
+            const contextPrompt = raceContext
+                ? `${raceContext}\n\nUser message: ${text}\n\nAsk questions about website design, components, colors, sections, and features the user wants. Don't ask about race details since we already have them.`
+                : text;
 
             const payload = {
-                prompt: text,
-                history: chatMessages.map((m) => ({ role: m.role, content: m.text })),
-                images: [...uploadedImageUrls], // these are URLs if user pasted them
-                imageData, // optional base64s
+                prompt: contextPrompt,
+                history: chatMessages.map((m) => ({
+                    role: m.role,
+                    content: m.text,
+                })),
+                images: uploadedImageUrls,
             };
 
             const res = await axios.post("/api/clarify-question", payload);
             const data = res.data;
 
-            // Expect JSON: { question: string|null, enough: boolean, reason?: string }
             if (data?.question) {
-                setChatMessages((c) => [...c, { role: "ai", text: data.question }]);
+                setChatMessages((prev) => [...prev, { role: "ai", text: data.question }]);
                 setLastQuestion(data.question);
             } else if (data?.enough) {
-                setChatMessages((c) => [
-                    ...c,
-                    { role: "ai", text: "Okay — looks like we have enough info to generate a website." },
+                setChatMessages((prev) => [
+                    ...prev,
+                    { role: "ai", text: "Great! I have all the details. Ready to generate your website!" },
                 ]);
-                setAskingDone(true);
-            } else {
-                // fallback: show entire text as ai reply
-                const fallback = data?.reply || "Sorry, I couldn't generate a clarifying question.";
-                setChatMessages((c) => [...c, { role: "ai", text: fallback }]);
             }
         } catch (err) {
-            console.error("Clarify API error", err);
-            setErrorMsg("Failed to get clarifying question. Check server logs.");
+            console.error("Clarification error:", err);
+            setErrorMsg("Failed to get response. Please try again.");
         } finally {
             setLoadingQuestion(false);
+            setWaitingForResponse(false);
         }
     };
 
-    // start loader sequence: analyzing -> thinking -> enhancing
+    // =============================
+    // GENERATE WEBSITE
+    // =============================
     const startLoaderSequence = () => {
         setIsEnhancing(true);
-        setLoaderText("Analyzing...");
-        // two timeouts: after 3s -> Thinking, after 6s -> Enhancing
-        setTimeout(() => setLoaderText("Thinking..."), 3000);
-        setTimeout(() => setLoaderText("Enhancing..."), 6000);
+        setLoaderText("Analyzing race details...");
+        setTimeout(() => setLoaderText("Designing components..."), 3000);
+        setTimeout(() => setLoaderText("Building your website..."), 6000);
     };
 
-    // final generate function: will call /api/gen-ai-code and then create convex workspace (keep same flow)
     const generateWebsite = async () => {
-        // Combine all chatMessages + uploadedImageUrls into a final prompt
-        const finalPrompt =
-            chatMessages.map((m) => `${m.role === "user" ? "User:" : "AI:"} ${m.text}`).join("\n") +
-            "\n\nGENERATE_WEBSITE: Create a multi-file React + Tailwind UI project. Return JSON mapping filenames to code.";
+        if (!selectedRace) {
+            setErrorMsg("No race selected. Please select a race first.");
+            return;
+        }
+
+        const raceDetails = formatRaceDetails(selectedRace);
+
+        // Combine race details + chat history for generation
+        const fullPrompt = `
+${raceDetails}
+
+User Conversation:
+${chatMessages.map((m) => `${m.role === "user" ? "User" : "AI"}: ${m.text}`).join("\n")}
+
+Based on the race details and user preferences above, generate a professional race website.
+`.trim();
 
         try {
             startLoaderSequence();
 
-            // Attach images (we'll send URLs only — the server expects images[] array)
-            const payload = {
-                prompt: finalPrompt,
+            const res = await axios.post("/api/gen-ai-code", {
+                prompt: fullPrompt,
                 images: uploadedImageUrls,
-            };
-
-            const res = await axios.post("/api/gen-ai-code", payload, {
-                timeout: 10 * 300000, // 5 mins
+                raceDetails: selectedRace, // Send to API for generation
             });
-            console.log("result " + JSON.stringify(res))
+
             const data = res.data;
 
-            // Expect { files: { "/App.jsx": { code: "..." }, ... } }
-            if (!data?.files) {
-                setErrorMsg("Generator did not return files. See server logs.");
-                setIsEnhancing(false);
-                return;
-            }
+            // ✅ Store only raw chat messages (what was actually typed)
+            const rawMessages = chatMessages.map((m) => ({
+                role: m.role,
+                content: m.text,
+            }));
 
-            // Save messages and urls to Convex workspace (as your app did previously)
-            const msg = { role: "user", content: finalPrompt };
-            setMessages(msg);
-            setUrls(uploadedImageUrls || []);
+            setMessages(rawMessages); // Store raw messages in context
+            setUrls(uploadedImageUrls);
 
-            // Create workspace with files saved
             const workspaceId = await CreateWorkspace({
-                messages: [msg],
-                urls: uploadedImageUrls || [],
+                messages: rawMessages, // ✅ Only raw chat messages
+                urls: uploadedImageUrls,
                 files: data.files,
                 chatId: data.chatId,
                 demoUrl: data.demoUrl,
                 projectId: data.projectId,
-                latestVersionId: data.latestVersionId
-
+                latestVersionId: data.latestVersionId,
+                // ❌ Don't store raceDetails in workspace
             });
 
-            // navigate
             router.push("/workspace/" + workspaceId);
         } catch (err) {
-            console.error("Generation error", err);
-            setErrorMsg("Failed to generate website. Check server logs.");
+            console.error("Website generation error:", err);
+            setErrorMsg("Failed to generate website. Please try again.");
         } finally {
             setIsEnhancing(false);
         }
     };
 
-    // UI helpers
+    // =============================
+    // SEND MESSAGE
+    // =============================
     const handleSendClick = async () => {
-        // If there is a last question (asked by AI), treat currentAnswer as its response
-        if (!currentAnswer || !currentAnswer.trim()) return;
-        await askClarifyingQuestion(currentAnswer.trim());
+        if (!currentAnswer.trim() || isSending || waitingForResponse) return;
+
+        const userMessage = currentAnswer.trim();
+        setCurrentAnswer("");
+        setIsSending(true);
+
+        setChatMessages((prev) => [...prev, { role: "user", text: userMessage }]);
+
+        const raceContext = selectedRace ? formatRaceDetails(selectedRace) : "";
+        await askClarifyingQuestion(userMessage, raceContext);
+
+        setIsSending(false);
     };
 
+    // =============================
+    // UI
+    // =============================
     return (
-        <div className="min-h-screen bg-gray-950 relative overflow-hidden">
-            {/* Loader overlay */}
+        <div className="min-h-screen bg-gray-950">
             {isEnhancing && (
-                <div className="fixed inset-0 bg-black/70 z-[9999] flex flex-col items-center justify-center">
-                    <Loader2 className="h-16 w-16 text-blue-400 animate-spin mb-4" />
-                    <p className="text-xl text-blue-300 font-semibold">{loaderText}</p>
+                <div className="fixed inset-0 bg-black/80 flex flex-col items-center justify-center z-50">
+                    <Loader2 className="h-16 w-16 animate-spin text-blue-400" />
+                    <p className="text-blue-300 mt-2 text-lg">{loaderText}</p>
                 </div>
             )}
 
-
-            <div className="container mx-auto px-4 py-16 relative z-10">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Left: Chat clarifier */}
-                    <div className="bg-gray-900/80 p-6 rounded-lg border border-electric-blue-500/30">
-                        <div className="flex items-center gap-3 mb-4">
-                            <Sparkles className="h-6 w-6 text-electric-blue-400" />
-                            <h2 className="text-xl text-electric-blue-300 font-semibold">Build a website — let's get details</h2>
-                        </div>
-
-                        <div className="h-[60vh] overflow-y-auto p-3 bg-gray-800 rounded-md mb-4">
-                            {/* Render chatMessages */}
-                            {chatMessages.length === 0 && (
-                                <div className="text-gray-400">Start by describing your idea — the assistant will ask questions to clarify.</div>
-                            )}
-
-                            {chatMessages.map((m, i) => (
-                                <div
-                                    key={i}
-                                    className={`mb-3 ${m.role === "user" ? "text-right" : "text-left"}`}
-                                >
-                                    <div
-                                        className={`inline-block px-3 py-2 rounded-md ${m.role === "user" ? "bg-blue-500 text-white" : "bg-gray-700 text-gray-100"
-                                            }`}
-                                    >
-                                        {m.text}
-                                        {m.imageUrl && (
-                                            <div className="mt-2">
-                                                <img src={m.imageUrl} alt="user-upload" className="max-w-xs rounded" />
-                                            </div>
-                                        )}
-                                    </div>
+            <div className="container mx-auto px-4 py-16">
+                <div className="bg-gray-900 p-6 rounded-lg border border-blue-500/20 max-w-4xl mx-auto">
+                    {/* ✅ Selected Race Info Bar */}
+                    {selectedRace && (
+                        <div className="mb-4 p-4 bg-blue-900/30 border border-blue-500/50 rounded-lg">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h3 className="text-blue-300 font-semibold">{selectedRace.title}</h3>
+                                    <p className="text-blue-400 text-sm">{selectedRace.local_date_time}</p>
                                 </div>
-                            ))}
+                                <span className="text-xs bg-blue-600 px-3 py-1 rounded-full text-white">
+                                    {selectedRace.status}
+                                </span>
+                            </div>
                         </div>
+                    )}
 
-                        {/* Image upload and URL */}
-                        <div className="flex gap-2 items-center mb-3">
+                    <div className="h-[60vh] overflow-y-auto bg-gray-800 p-4 rounded">
+                        {initialLoading ? (
+                            <div className="flex flex-col items-center justify-center h-full">
+                                <Loader2 className="h-12 w-12 animate-spin text-blue-400" />
+                                <p className="text-gray-400 mt-3">Loading your races...</p>
+                            </div>
+                        ) : (
+                            <>
+                                {chatMessages.map((m, i) => (
+                                    <div
+                                        key={i}
+                                        className={`mb-3 ${m.role === "user" ? "text-right" : "text-left"}`}
+                                    >
+                                        <div
+                                            className={`inline-block p-3 rounded max-w-[80%] ${m.role === "user"
+                                                ? "bg-blue-500 text-white"
+                                                : "bg-gray-700 text-gray-100"
+                                                }`}
+                                        >
+                                            {m.text}
+                                            {m.imageUrl && (
+                                                <img
+                                                    src={m.imageUrl}
+                                                    alt="uploaded"
+                                                    className="mt-2 max-w-xs rounded"
+                                                />
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {waitingForResponse && (
+                                    <div className="mb-3 text-left">
+                                        <div className="inline-block p-3 rounded bg-gray-700 text-gray-400">
+                                            <div className="flex items-center gap-2">
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                                <span className="italic">Thinking...</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {showRaceList && (
+                                    <div className="mt-4 space-y-2">
+                                        {races.map((race) => (
+                                            <button
+                                                key={race.id}
+                                                onClick={() => selectRace(race)}
+                                                disabled={waitingForResponse}
+                                                className="block w-full text-left bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white p-4 rounded transition"
+                                            >
+                                                <div className="font-semibold">{race.title}</div>
+                                                <div className="text-sm text-blue-200 mt-1">
+                                                    {race.local_date_time} • {race.events.map(e => e.name).join(", ")}
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <div ref={chatEndRef} />
+                            </>
+                        )}
+                    </div>
+
+                    {!initialLoading && selectedRace && (
+                        <>
                             <input
                                 ref={fileInputRef}
                                 type="file"
                                 accept="image/*"
                                 multiple
                                 onChange={handleFileSelect}
-                                className="text-sm text-gray-200"
+                                disabled={waitingForResponse}
+                                className="mt-3 text-gray-300 disabled:opacity-50"
                             />
 
-                        </div>
-
-                        {/* Answer input */}
-                        <div className="flex gap-2">
-                            <input
-                                value={currentAnswer}
-                                onChange={(e) => setCurrentAnswer(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === "Enter") handleSendClick();
-                                }}
-                                placeholder={loadingQuestion ? "Waiting..." : lastQuestion || "Describe your idea to start..."}
-                                className="flex-1 bg-gray-800 p-3 rounded text-gray-100"
-                                disabled={loadingQuestion}
-                            />
-                            <button
-                                onClick={handleSendClick}
-                                disabled={loadingQuestion || !currentAnswer.trim()}
-                                className="bg-gradient-to-r from-blue-500 to-purple-500 px-4 py-2 rounded"
-                            >
-                                <Send className="h-5 w-5 text-white" />
-                            </button>
-                        </div>
-
-                        {/* If server decided we have enough info, show Generate CTA */}
-                        {askingDone && (
-                            <div className="mt-4 p-3 bg-green-900 bg-opacity-30 rounded">
-                                <p className="text-green-300 mb-2 font-semibold">
-                                    ✅ Okay — looks like we have enough info to generate a website.
-                                </p>
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={generateWebsite}
-                                        className="bg-green-500 px-4 py-2 rounded hover:bg-green-600"
-                                    >
-                                        Generate Website
-                                    </button>
-                                    <button
-                                        onClick={() => {
-                                            // allow user to continue clarifying if they wish
-                                            setAskingDone(false);
-                                            setLastQuestion(null);
-                                        }}
-                                        className="bg-gray-700 px-4 py-2 rounded"
-                                    >
-                                        Continue clarifying
-                                    </button>
-                                </div>
+                            <div className="flex gap-2 mt-3">
+                                <input
+                                    value={currentAnswer}
+                                    onChange={(e) => setCurrentAnswer(e.target.value)}
+                                    onKeyDown={(e) => e.key === "Enter" && handleSendClick()}
+                                    disabled={waitingForResponse || isSending}
+                                    placeholder={lastQuestion || "Describe your website preferences..."}
+                                    className="flex-1 bg-gray-800 text-white p-3 rounded border border-gray-700 focus:border-blue-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                                />
+                                <button
+                                    onClick={handleSendClick}
+                                    disabled={!currentAnswer.trim() || waitingForResponse || isSending}
+                                    className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-white px-6 rounded transition flex items-center justify-center"
+                                >
+                                    {isSending ? (
+                                        <Loader2 className="h-5 w-5 animate-spin" />
+                                    ) : (
+                                        <Send size={20} />
+                                    )}
+                                </button>
                             </div>
-                        )}
+                        </>
+                    )}
 
-                        {errorMsg && <div className="mt-3 text-red-400">{errorMsg}</div>}
-                    </div>
+                    {/* ✅ GENERATE BUTTON - Always visible after race selection */}
+                    {showGenerateButton && !initialLoading && (
+                        <button
+                            onClick={generateWebsite}
+                            disabled={isEnhancing || waitingForResponse}
+                            className="mt-4 w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:opacity-50 text-white px-4 py-3 rounded font-semibold transition flex items-center justify-center gap-2"
+                        >
+                            <Sparkles size={20} />
+                            {isEnhancing ? "Generating..." : "Generate Website"}
+                        </button>
+                    )}
 
-
+                    {errorMsg && (
+                        <div className="mt-3 p-3 bg-red-900/30 border border-red-500 rounded text-red-300">
+                            {errorMsg}
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
