@@ -106,9 +106,9 @@ export default function CodeView() {
     ];
 
     // ------------------------------------------------------
-    // DOWNLOAD ZIP
+    // GENERATE ZIP (Helper function)
     // ------------------------------------------------------
-    const downloadProject = async () => {
+    const generateZip = async () => {
         const zip = new JSZip();
 
         // 1) Add project files (skip forbidden)
@@ -194,11 +194,19 @@ module.exports = nextConfig;
             }
         });
 
-        // 7) Generate ZIP blob
+        // 7) Generate and return ZIP blob
         const blob = await zip.generateAsync({ type: "blob" });
-        zipBlobRef.current = blob;
+        return blob;
+    };
 
-        // 8) Trigger browser download
+    // ------------------------------------------------------
+    // DOWNLOAD ZIP
+    // ------------------------------------------------------
+    const downloadProject = async () => {
+        const blob = await generateZip();
+        zipBlobRef.current = blob; // Store for potential deployment
+
+        // Trigger browser download
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
@@ -212,14 +220,17 @@ module.exports = nextConfig;
     // ------------------------------------------------------
     const deployToAWS = async () => {
         try {
+            setDeploying(true);
+            setDeployStatus("Preparing files...");
+            setDeployedUrl(null); // Clear previous URL
+
+            // ✅ Generate ZIP automatically if not already generated
             if (!zipBlobRef.current) {
-                alert("Please click Download once before deploying.");
-                return;
+                const blob = await generateZip();
+                zipBlobRef.current = blob;
             }
 
-            setDeploying(true);
             setDeployStatus("Building and deploying...");
-            setDeployedUrl(null); // Clear previous URL
 
             // Upload ZIP - API will build and deploy
             const formData = new FormData();
