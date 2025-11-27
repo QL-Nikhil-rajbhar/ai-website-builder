@@ -225,10 +225,12 @@ module.exports = nextConfig;
             setDeployedUrl(null); // Clear previous URL
 
             // ✅ Generate ZIP automatically if not already generated
-            if (!zipBlobRef.current) {
-                const blob = await generateZip();
-                zipBlobRef.current = blob;
-            }
+            // if (!zipBlobRef.current) {
+            //     const blob = await generateZip();
+            //     zipBlobRef.current = blob;
+            // }
+            const blob = await generateZip();
+            zipBlobRef.current = blob;
 
             setDeployStatus("Building and deploying...");
 
