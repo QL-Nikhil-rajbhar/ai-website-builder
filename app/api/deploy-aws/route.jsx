@@ -55,7 +55,7 @@ export async function POST(req) {
     try {
         const form = await req.formData();
         const zipFile = form.get("zipFile");
-        const raceName = form.get("raceName") || "Pali's-invititional-2026"; // ✅ Get race name
+        const raceName = form.get("raceName") || "Pali's-invititional-2025"; // ✅ Get race name
 
         if (!zipFile) {
             return NextResponse.json({ error: "Missing zipFile" }, { status: 400 });
@@ -178,20 +178,20 @@ export async function POST(req) {
 
 
 
-        // 7) CloudFront invalidation
-        // console.log("🔄 Creating CloudFront invalidation...");
-        // await cf.send(
-        //     new CreateInvalidationCommand({
-        //         DistributionId: DISTRIBUTION_ID,
-        //         InvalidationBatch: {
-        //             CallerReference: String(timestamp),
-        //             Paths: {
-        //                 Quantity: 1,
-        //                 Items: [`/${subdomain}/*`], // ✅ Updated path
-        //             },
-        //         },
-        //     })
-        // );
+        console.log("🔄 Creating CloudFront invalidation...");
+        await cf.send(
+            new CreateInvalidationCommand({
+                DistributionId: DISTRIBUTION_ID,
+                InvalidationBatch: {
+                    CallerReference: String(timestamp),
+                    Paths: {
+                        Quantity: 1,
+                        Items: [`/${subdomain}/*`],
+                    },
+                },
+            })
+        );
+        console.log("✅ Cache invalidated");
 
         // ✅ Return subdomain URL
         const baseDomain = CUSTOM_DOMAIN || CLOUDFRONT_DOMAIN;
