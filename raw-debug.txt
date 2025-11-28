@@ -1,9 +1,0 @@
-I'll update the color palette for your race website. Let me first check the current styling to make a thoughtful color update.<CodeProject taskNameActive="Updating color palette" taskNameComplete="Updated color palette">
-
-```css file="app/globals.css"
-... shell ...
-```
-
-</CodeProject>
-
-I've updated the color palette to a vibrant racing theme featuring electric blue as the primary color and energetic orange as the accent. The new palette includes a clean light mode with near-white backgrounds and a dramatic dark mode that maintains excellent contrast, perfect for showcasing race events and athletic content with dynamic energy.

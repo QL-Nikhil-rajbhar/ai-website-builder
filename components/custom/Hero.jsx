@@ -39,9 +39,7 @@ export default function Hero() {
 
     const chatEndRef = useRef(null);
 
-    const AUTH_TOKEN =
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5MDFhMjVjZWU5NmQ5ODg5MDFlYTU3YyIsImZpcnN0X25hbWUiOiJuaWtoaWwiLCJsYXN0X25hbWUiOiJuaWtoaWwucmFqYmhhckBxdW9ra2FsYWJzLmNvbSIsInByb2ZpbGVfaW1hZ2UiOm51bGwsImVtYWlsIjoibmlraGlsLnJhamJoYXJAcXVva2thbGFicy5jb20iLCJwaG9uZV9jb2RlIjpudWxsLCJwaG9uZV9jb3VudHJ5IjpudWxsLCJwaG9uZSI6bnVsbCwic2lnbnVwX21ldGhvZCI6IkVNQUlMIiwicm9sZSI6IlJBQ0VfRElSRUNUT1IiLCJpc19vbmJvYXJkZWQiOnRydWUsImxvZ2luX3R5cGUiOiJub3JtYWwiLCJpc19kZWxldGVkIjpmYWxzZSwibG9naW5fcGxhdGZvcm0iOiJXRUIiLCJlbWVyZ2VuY3lfY29udGFjdF9pbmZvIjp7Im5hbWUiOiIiLCJwaG9uZSI6IiIsInBob25lX2NvZGUiOm51bGwsInBob25lX2NvdW50cnkiOm51bGx9LCJpYXQiOjE3NjE3MTQ4MDEsImV4cCI6MTc2NDMwNjgwMX0.Zneq1ebUl_xWdy9fGqZdAfQPW1nTV9TjeyIbqqjz7PY";
-
+    const AUTH_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY3N2Y2ZjliNDIyNWY3NDBmMDJhOTY4MyIsImZpcnN0X25hbWUiOiJRTCIsImxhc3RfbmFtZSI6IlJEIiwicHJvZmlsZV9pbWFnZSI6bnVsbCwiZW1haWwiOiJwYWxpLmp1Z3JhbkBxdW9ra2FsYWJzLmNvbSIsInBob25lX2NvZGUiOiIrMSIsInBob25lX2NvdW50cnkiOiJVUyIsInBob25lIjoiNTMzNDUzNTM0NTMiLCJzaWdudXBfbWV0aG9kIjoiRU1BSUwiLCJyb2xlIjoiUkFDRV9ESVJFQ1RPUiIsImlzX29uYm9hcmRlZCI6dHJ1ZSwibG9naW5fdHlwZSI6Im5vcm1hbCIsImlzX2RlbGV0ZWQiOmZhbHNlLCJsb2dpbl9wbGF0Zm9ybSI6IldFQiIsImVtZXJnZW5jeV9jb250YWN0X2luZm8iOnsibmFtZSI6IlJpYWEiLCJwaG9uZSI6IjQ1MzQ1MzQ1MzU0IiwicGhvbmVfY29kZSI6IisxIiwicGhvbmVfY291bnRyeSI6IlVTIn0sImlhdCI6MTc2NDMxMzQ2MywiZXhwIjoxNzY2OTA1NDYzfQ.XppXCxfmpTm5M00wKjAGGgO8e_e-LahDBRJshwRN9po"
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [chatMessages, waitingForResponse]);
@@ -63,6 +61,7 @@ export default function Hero() {
                         },
                     }
                 );
+                console.log("respone is " + JSON.stringify(res))
 
                 const data = res.data?.data;
                 const name = data?.race_director_name?.split(" ")[0] || "there";

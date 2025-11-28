@@ -14,6 +14,7 @@ export const runtime = "nodejs";
 const DEPLOY_BUCKET = process.env.NEXT_PUBLIC_AWS_SOURCE_BUCKET;
 const DISTRIBUTION_ID = process.env.NEXT_PUBLIC_CLOUDFRONT_DISTRIBUTION_ID;
 const CLOUDFRONT_DOMAIN = process.env.NEXT_PUBLIC_CLOUDFRONT_DOMAIN;
+const CUSTOM_DOMAIN = "rtd-test.qkkalabs.com";
 const AWS_REGION = "us-east-2";
 
 const s3 = new S3Client({
@@ -54,12 +55,27 @@ export async function POST(req) {
     try {
         const form = await req.formData();
         const zipFile = form.get("zipFile");
+        const raceName = form.get("raceName") || "Pali's-invititional-2026"; // ✅ Get race name
 
         if (!zipFile) {
             return NextResponse.json({ error: "Missing zipFile" }, { status: 400 });
         }
 
         const timestamp = Date.now();
+
+        // ✅ Generate subdomain from raceName
+        let subdomain = raceName
+            .toLowerCase()
+            .replace(/[^a-z0-9]/g, "-")
+            .replace(/--+/g, "-")
+            .replace(/^-|-$/g, "")
+            .substring(0, 50);
+
+        if (!subdomain) {
+            subdomain = `site-${timestamp}`;
+        }
+
+        console.log("🚀 Deploying subdomain:", subdomain);
 
         // 1) Create temp directory
         tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "deploy-"));
@@ -114,6 +130,7 @@ export async function POST(req) {
 
         console.log("✅ Dependencies installed");
 
+        // 4) Build Next.js - KEEP YOUR WORKING BUILD LOGIC
         console.log("🔨 Building Next.js...");
         execSync("npm run build", {
             cwd: tempDir,
@@ -122,7 +139,7 @@ export async function POST(req) {
             env: {
                 ...process.env,
                 NODE_ENV: "production",
-                NEXT_PUBLIC_BASE_PATH: `/projects/${timestamp}`,  // ← Add this
+                NEXT_PUBLIC_BASE_PATH: "", // ✅ Empty for subdomain (was `/projects/${timestamp}`)
             },
         });
 
@@ -136,7 +153,7 @@ export async function POST(req) {
 
         // 6) Upload to S3
         console.log("☁️ Uploading to S3...");
-        const targetPrefix = `projects/${timestamp}/`;
+        const targetPrefix = `${subdomain}/`; // ✅ Use subdomain as folder (was `projects/${timestamp}/`)
         const files = getAllFiles(outDir);
 
         console.log(`📤 Uploading ${files.length} files...`);
@@ -159,8 +176,10 @@ export async function POST(req) {
 
         console.log("✅ Uploaded to S3");
 
+
+
         // 7) CloudFront invalidation
-        console.log("🔄 Creating CloudFront invalidation...");
+        // console.log("🔄 Creating CloudFront invalidation...");
         // await cf.send(
         //     new CreateInvalidationCommand({
         //         DistributionId: DISTRIBUTION_ID,
@@ -168,20 +187,22 @@ export async function POST(req) {
         //             CallerReference: String(timestamp),
         //             Paths: {
         //                 Quantity: 1,
-        //                 Items: [`/projects/${timestamp}/*`],
+        //                 Items: [`/${subdomain}/*`], // ✅ Updated path
         //             },
         //         },
         //     })
         // );
 
-        const url = `https://${CLOUDFRONT_DOMAIN}/projects/${timestamp}/`;
+        // ✅ Return subdomain URL
+        const baseDomain = CUSTOM_DOMAIN || CLOUDFRONT_DOMAIN;
+        const url = `https://${subdomain}.${baseDomain}/`;
 
         console.log("✅ Deployment complete:", url);
-
 
         return NextResponse.json({
             success: true,
             url: url,
+            subdomain: subdomain,
             timestamp: timestamp,
         });
     } catch (err) {
