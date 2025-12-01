@@ -113,14 +113,15 @@ export default function ChatView() {
             const payload = {
                 userMessage: finalMessage,
                 chatId,
-                images: uploadedImageUrls, // ⭐ pass hidden images
+                images: uploadedImageUrls,
             };
 
             const editRes = await axios.post("/api/edit-code", payload, {
                 timeout: 120000,
             });
+            console.log("editreponse is" + JSON.stringify(editRes))
 
-            const changedFiles = editRes.data.files || {};
+            const changedFiles = editRes.data?.files || {};
 
             if (Object.keys(changedFiles).length > 0) {
                 const updatedFiles = { ...files, ...changedFiles };
@@ -134,7 +135,7 @@ export default function ChatView() {
 
             const aiMessage = {
                 role: "ai",
-                content: `Changes applied. Preview updated.`,
+                content: editRes?.data?.editResponse,
             };
 
             const newMessages = [...messages, aiMessage];

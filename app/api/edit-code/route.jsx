@@ -87,8 +87,14 @@ ${images.join("\n")}
                 code: f.content,
             };
         }
+        const extractedText = response.text
+            .replace(/<CodeProject[^>]*>/g, '')
+            .replace(/<\/CodeProject>/g, '')
+            .replace(/``````/g, '')
+            .trim()
 
 
+        console.log("extracted text is" + JSON.stringify(extractedText))
 
         // ⭐ Return like gen-ai-code
         return NextResponse.json({
@@ -96,6 +102,7 @@ ${images.join("\n")}
             files: formatted,
             demoUrl: version.demoUrl,
             latestVersionId: version.id,
+            editResponse: extractedText
         });
 
     } catch (err) {
