@@ -218,27 +218,49 @@ module.exports = nextConfig;
     // ------------------------------------------------------
     // AWS DEPLOY
     // ------------------------------------------------------
+    // ------------------------------------------------------
+    // AWS DEPLOY (COMPLETE FIXED VERSION WITH DEBUGGING)
     const deployToAWS = async () => {
         try {
             setDeploying(true);
             setDeployStatus("Preparing files...");
-            setDeployedUrl(null); // Clear previous URL
+            setDeployedUrl(null);
 
-            // ✅ Generate ZIP automatically if not already generated
-            // if (!zipBlobRef.current) {
-            //     const blob = await generateZip();
-            //     zipBlobRef.current = blob;
-            // }
+            console.log("🔍 DEPLOY DEBUG START");
+
+            // Generate fresh zip
             const blob = await generateZip();
-            zipBlobRef.current = blob;
+            console.log("📦 Generated zip size:", blob.size);
+
+            // Test: Compare with download zip
+            const testArrayBuffer = await blob.arrayBuffer();
+            console.log("📊 Zip first 100 bytes:", Array.from(new Uint8Array(testArrayBuffer.slice(0, 100))));
+
+            // Fresh blob copy
+            const freshBlob = new Blob([testArrayBuffer], { type: blob.type });
+            console.log("✅ Fresh blob size:", freshBlob.size);
+
+            zipBlobRef.current = freshBlob;
+
+            // Create FormData with fresh blob
+            const formData = new FormData();
+            formData.append("zipFile", freshBlob);
+            // formData.append("raceName", workspace?.raceDetails?.title);
+            console.log('race name is ' + JSON.stringify(workspace))
+
+            // DEBUG: Log FormData contents
+            for (let [key, value] of formData.entries()) {
+                console.log("📤 FormData entry:", key, value.size || value);
+            }
 
             setDeployStatus("Building and deploying...");
+            console.log("🚀 Sending to API...");
 
-            // Upload ZIP - API will build and deploy
-            const formData = new FormData();
-            formData.append("zipFile", zipBlobRef.current);
+            const deployRes = await axios.post("/api/deploy-aws", formData, {
+                timeout: 120000, // 2 min timeout
+            });
 
-            const deployRes = await axios.post("/api/deploy-aws", formData);
+            console.log("✅ API Response:", deployRes.data);
 
             if (!deployRes.data?.success) {
                 alert("Deployment failed");
@@ -247,18 +269,19 @@ module.exports = nextConfig;
             }
 
             const url = deployRes.data.url;
-
             setDeploying(false);
             setDeployStatus("");
-            setDeployedUrl(url); // ✅ Store URL for display
+            setDeployedUrl(url);
 
         } catch (err) {
-            console.error("AWS deploy error:", err);
+            console.error("❌ AWS deploy error:", err);
+            console.error("Error response:", err.response?.data);
             setDeploying(false);
             setDeployStatus("");
             alert("Deployment failed: " + (err.response?.data?.error || err.message));
         }
     };
+
 
     // ------------------------------------------------------
     // Copy to Clipboard
