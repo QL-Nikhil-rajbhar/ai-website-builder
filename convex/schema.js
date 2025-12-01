@@ -17,6 +17,7 @@ export default defineSchema({
         projectId: v.optional(v.string()),
         latestVersionId: v.optional(v.string()),
         demoUrl: v.optional(v.string()),
+        raceName: v.optional(v.string()),
         createdAt: v.optional(v.string()),
         status: v.optional(v.string()),
         updatedAt: v.optional(v.string())

@@ -8,7 +8,9 @@ const v0 = createClient({
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { prompt = "", images = [] } = body;
+    const { prompt = "", images = [], raceDetails = "" } = body;
+
+
 
     // ⭐ Insert the strict image-handling rule here
     const imageInstruction = `
@@ -71,6 +73,7 @@ ${images.join("\n")}
       projectId: chat.projectId,
       latestVersionId: version.id,
       demoUrl: version.demoUrl,
+      raceName: raceDetails?.title
     });
 
   } catch (err) {

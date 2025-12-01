@@ -178,14 +178,14 @@ export async function POST(req) {
         console.log("✅ Uploaded to S3");
 
 
-        // ✅ TEMP: Copy build to local folder for testing (REMOVE AFTER TESTING)
-        console.log("💾 Saving build locally for testing...");
-        const projectRoot = process.cwd();
-        const localBuildDir = path.join(projectRoot, 'local-builds', `build-${subdomain}-${timestamp}`);
-        fs.mkdirSync(localBuildDir, { recursive: true });
-        fs.cpSync(outDir, localBuildDir, { recursive: true });
-        console.log(`✅ Local build saved: ${localBuildDir}`);
-        console.log(`📂 Serve this folder with: cd ${localBuildDir} && npx serve .`);
+        // // ✅ TEMP: Copy build to local folder for testing (REMOVE AFTER TESTING)
+        // console.log("💾 Saving build locally for testing...");
+        // const projectRoot = process.cwd();
+        // const localBuildDir = path.join(projectRoot, 'local-builds', `build-${subdomain}-${timestamp}`);
+        // fs.mkdirSync(localBuildDir, { recursive: true });
+        // fs.cpSync(outDir, localBuildDir, { recursive: true });
+        // console.log(`✅ Local build saved: ${localBuildDir}`);
+        // console.log(`📂 Serve this folder with: cd ${localBuildDir} && npx serve .`);
 
         console.log("🔄 Creating CloudFront invalidation...");
         await cf.send(

@@ -247,6 +247,7 @@ Based on the race details and user preferences above, generate a professional ra
                 raceDetails: selectedRace, // Send to API for generation
             });
 
+
             const data = res.data;
 
             // ✅ Store only raw chat messages (what was actually typed)
@@ -266,6 +267,7 @@ Based on the race details and user preferences above, generate a professional ra
                 demoUrl: data.demoUrl,
                 projectId: data.projectId,
                 latestVersionId: data.latestVersionId,
+                raceName: data.raceName
                 // ❌ Don't store raceDetails in workspace
             });
 

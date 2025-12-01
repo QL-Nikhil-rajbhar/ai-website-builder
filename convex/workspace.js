@@ -13,6 +13,7 @@ export const CreateWorkspace = mutation({
         latestVersionId: v.optional(v.string()),
         projectId: v.optional(v.string()),
         demoUrl: v.optional(v.string()),   // ⭐ ADD THIS
+        raceName: v.optional(v.string())
     },
     handler: async (ctx, args) => {
         const workspaceId = await ctx.db.insert("workspace", {
@@ -23,6 +24,7 @@ export const CreateWorkspace = mutation({
             projectId: args.projectId,
             latestVersionId: args.latestVersionId,
             demoUrl: args.demoUrl || null,   // ⭐ STORE IT
+            raceName: args.raceName
             // convex auto manages createdAt / updatedAt
         });
         return workspaceId;
@@ -72,6 +74,7 @@ export const UpdateWorkspace = mutation({
         projectId: v.optional(v.string()),
         latestVersionId: v.optional(v.string()),
         demoUrl: v.optional(v.string()),   // ⭐ ADD HERE
+        raceName: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
         return await ctx.db.patch(args.workspaceId, {
@@ -82,6 +85,7 @@ export const UpdateWorkspace = mutation({
             projectId: args.projectId,
             latestVersionId: args.latestVersionId,
             demoUrl: args.demoUrl,          // ⭐ STORE IT
+            raceName: args.raceName
         });
     },
 });
