@@ -188,16 +188,17 @@ export default function ChatView() {
 
         // UI shows only user's clean message
         const visibleUserMsg = { role: "user", content: userInput.trim() };
-        const updated = [...messages, visibleUserMsg];
+        const updatedMessages = [...messages, visibleUserMsg];
 
-        setMessages(updated);
-        setUserInput("");
+        setMessages(updatedMessages);
 
         // Store message (with hidden image URLs)
         await UpdateWorkspace({
             workspaceId: id,
             messages: [...messages, { role: "user", content: finalMessage }],
         });
+
+        setUserInput(""); // Clear input AFTER updating workspace
 
         await runEdit(finalMessage);
     };
