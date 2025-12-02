@@ -245,8 +245,8 @@ module.exports = nextConfig;
             // Create FormData with fresh blob
             const formData = new FormData();
             formData.append("zipFile", freshBlob);
-            // formData.append("raceName", workspace?.raceDetails?.title);
-            console.log('race name is ' + JSON.stringify(workspace))
+            formData.append("raceName", workspace?.raceName);
+            // console.log('race name is ' + JSON.stringify(workspace))
 
             // DEBUG: Log FormData contents
             for (let [key, value] of formData.entries()) {
