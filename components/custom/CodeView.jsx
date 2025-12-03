@@ -3,7 +3,8 @@
 // =======================================================
 "use client";
 
-import React, { useMemo, useState, useRef } from "react";
+import React, { useMemo, useState, useRef, useContext } from "react";
+import { WorkspaceContext } from "@/context/WorkspaceContext";
 import {
     SandpackProvider,
     SandpackLayout,
@@ -11,8 +12,7 @@ import {
     SandpackFileExplorer,
 } from "@codesandbox/sandpack-react";
 
-import { useMutation, useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { workspaceApi } from "@/lib/workspaceApi";
 import { useParams } from "next/navigation";
 
 import { Loader2Icon, Download, Rocket, CheckCircle2, Copy, ExternalLink, X } from "lucide-react";
@@ -73,10 +73,14 @@ export function Card({ className, ...props }) {
 // ------------------------------------------------------
 export default function CodeView() {
     const { id } = useParams();
-    const workspace = useQuery(
-        api.workspace.GetWorkspace,
-        id ? { workspaceId: id } : "skip"
-    );
+    const [workspace, setWorkspace] = useState(null);
+    const { isDeploying, refreshTrigger } = useContext(WorkspaceContext);
+
+    React.useEffect(() => {
+        if (id) {
+            workspaceApi.getWorkspace(id).then(setWorkspace).catch(console.error);
+        }
+    }, [id, refreshTrigger]);
 
     const [activeTab, setActiveTab] = useState("preview");
     const [previewLoading, setPreviewLoading] = useState(false);
@@ -402,7 +406,19 @@ module.exports = nextConfig;
             )}
 
             {activeTab === "preview" && (
-                <iframe src={workspace.demoUrl} className="w-full h-[80vh]" />
+                <div className="relative w-full h-[80vh]">
+                    {isDeploying && (
+                        <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center z-50">
+                            <Loader2Icon className="animate-spin h-12 w-12 text-blue-400" />
+                            <p className="text-white mt-4 text-lg font-semibold">Editing...</p>
+                        </div>
+                    )}
+                    <iframe
+                        key={refreshTrigger} // Force iframe reload on refresh
+                        src={workspace.demoUrl}
+                        className="w-full h-full"
+                    />
+                </div>
             )}
         </div>
     );

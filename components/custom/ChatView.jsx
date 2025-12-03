@@ -3,9 +3,9 @@
 import { useContext, useEffect, useState, useRef } from "react";
 import { MessagesContext } from "@/context/MessagesContext";
 import { UrlsContext } from "@/context/UrlsContext";
+import { WorkspaceContext } from "@/context/WorkspaceContext";
 import { useParams } from "next/navigation";
-import { useConvex, useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { workspaceApi } from "@/lib/workspaceApi";
 import { Loader2Icon, Send } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import axios from "axios";
@@ -19,14 +19,11 @@ import axios from "axios";
 
 export default function ChatView() {
     const { id } = useParams();
-    const convex = useConvex();
 
     const { messages: ctxMessages, setMessages: ctxSetMessages } =
         useContext(MessagesContext);
     const { urls } = useContext(UrlsContext);
-
-    const UpdateWorkspace = useMutation(api.workspace.UpdateWorkspace);
-    const UpdateFiles = useMutation(api.workspace.UpdateFiles);
+    const { setIsDeploying, triggerRefresh } = useContext(WorkspaceContext);
 
     const [files, setFiles] = useState({});
     const [chatId, setChatId] = useState(null);
@@ -51,9 +48,7 @@ export default function ChatView() {
 
         (async () => {
             try {
-                const res = await convex.query(api.workspace.GetWorkspace, {
-                    workspaceId: id,
-                });
+                const res = await workspaceApi.getWorkspace(id);
 
                 setMessages(res?.messages || []);
                 setFiles(res?.fileData || {});
@@ -104,10 +99,11 @@ export default function ChatView() {
     // ============================================================
     // MAIN EDIT FUNCTION (always uses chatId)
     // ============================================================
-    async function runEdit(finalMessage) {
+    async function runEdit(finalMessage, currentMessages) {
         if (!chatId) throw new Error("chatId missing in workspace");
 
         setLoading(true);
+        setIsDeploying(true); // Show loader in CodeView
 
         try {
             const payload = {
@@ -127,7 +123,7 @@ export default function ChatView() {
                 const updatedFiles = { ...files, ...changedFiles };
                 setFiles(updatedFiles);
 
-                await UpdateFiles({
+                await workspaceApi.updateFiles({
                     workspaceId: id,
                     files: updatedFiles,
                 });
@@ -138,10 +134,10 @@ export default function ChatView() {
                 content: editRes?.data?.editResponse,
             };
 
-            const newMessages = [...messages, aiMessage];
+            const newMessages = [...currentMessages, aiMessage];
             setMessages(newMessages);
 
-            await UpdateWorkspace({
+            await workspaceApi.updateWorkspace({
                 workspaceId: id,
                 messages: newMessages,
                 chatId,
@@ -159,15 +155,17 @@ export default function ChatView() {
                 content: `Failed to edit: ${err.message}`,
             };
 
-            const updated = [...messages, errorMsg];
+            const updated = [...currentMessages, errorMsg];
             setMessages(updated);
 
-            await UpdateWorkspace({
+            await workspaceApi.updateWorkspace({
                 workspaceId: id,
                 messages: updated,
             });
         } finally {
             setLoading(false);
+            setIsDeploying(false); // Hide loader
+            triggerRefresh(); // Refresh CodeView
         }
     }
 
@@ -193,14 +191,15 @@ export default function ChatView() {
         setMessages(updatedMessages);
 
         // Store message (with hidden image URLs)
-        await UpdateWorkspace({
+        const messagesForDb = [...messages, { role: "user", content: finalMessage }];
+        await workspaceApi.updateWorkspace({
             workspaceId: id,
-            messages: [...messages, { role: "user", content: finalMessage }],
+            messages: messagesForDb,
         });
 
         setUserInput(""); // Clear input AFTER updating workspace
 
-        await runEdit(finalMessage);
+        await runEdit(finalMessage, messagesForDb);
     };
 
     // ============================================================
