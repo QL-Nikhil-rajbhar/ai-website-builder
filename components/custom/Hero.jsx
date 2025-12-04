@@ -97,7 +97,7 @@ export default function Hero() {
                 setInitialLoading(true);
 
                 const res = await axios.get(
-                    "http://localhost:3000/api/v2/director-my-races?searchText=",
+                    "https://apis-rtd.qkkalabs.com/api/v2/director-my-races?searchText=",
                     {
                         headers: {
                             AuthorizationToken: AUTH_TOKEN,
