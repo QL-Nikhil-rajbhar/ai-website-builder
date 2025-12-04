@@ -21,7 +21,7 @@ export default function ChatView() {
     const { id } = useParams();
     const convex = useConvex();
 
-    const { messages: ctxMessages, setMessages: ctxSetMessages } =
+    const { messages: ctxMessages, setMessages: ctxSetMessages, setIsGenerating } =
         useContext(MessagesContext);
     const { urls } = useContext(UrlsContext);
 
@@ -104,10 +104,11 @@ export default function ChatView() {
     // ============================================================
     // MAIN EDIT FUNCTION (always uses chatId)
     // ============================================================
-    async function runEdit(finalMessage) {
+    async function runEdit(finalMessage, dbMessagesSnapshot, uiMessagesSnapshot) {
         if (!chatId) throw new Error("chatId missing in workspace");
 
         setLoading(true);
+        setIsGenerating(true);
 
         try {
             const payload = {
@@ -138,12 +139,12 @@ export default function ChatView() {
                 content: editRes?.data?.editResponse,
             };
 
-            const newMessages = [...messages, aiMessage];
+            const newMessages = [...uiMessagesSnapshot, aiMessage];
             setMessages(newMessages);
 
             await UpdateWorkspace({
                 workspaceId: id,
-                messages: newMessages,
+                messages: [...dbMessagesSnapshot, aiMessage],
                 chatId,
                 demoUrl: editRes.data.demoUrl || null,
                 fileData: changedFiles,
@@ -159,15 +160,16 @@ export default function ChatView() {
                 content: `Failed to edit: ${err.message}`,
             };
 
-            const updated = [...messages, errorMsg];
+            const updated = [...uiMessagesSnapshot, errorMsg];
             setMessages(updated);
 
             await UpdateWorkspace({
                 workspaceId: id,
-                messages: updated,
+                messages: [...dbMessagesSnapshot, errorMsg],
             });
         } finally {
             setLoading(false);
+            setIsGenerating(false);
         }
     }
 
@@ -188,19 +190,20 @@ export default function ChatView() {
 
         // UI shows only user's clean message
         const visibleUserMsg = { role: "user", content: userInput.trim() };
-        const updatedMessages = [...messages, visibleUserMsg];
+        const updatedUiMessages = [...messages, visibleUserMsg];
+        const updatedDbMessages = [...messages, { role: "user", content: finalMessage }];
 
-        setMessages(updatedMessages);
+        setMessages(updatedUiMessages);
 
         // Store message (with hidden image URLs)
         await UpdateWorkspace({
             workspaceId: id,
-            messages: [...messages, { role: "user", content: finalMessage }],
+            messages: updatedDbMessages,
         });
 
         setUserInput(""); // Clear input AFTER updating workspace
 
-        await runEdit(finalMessage);
+        await runEdit(finalMessage, updatedDbMessages, updatedUiMessages);
     };
 
     // ============================================================

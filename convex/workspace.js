@@ -77,16 +77,18 @@ export const UpdateWorkspace = mutation({
         raceName: v.optional(v.string()),
     },
     handler: async (ctx, args) => {
-        return await ctx.db.patch(args.workspaceId, {
+        const patch = {
             messages: args.messages,
-            urls: args.urls,
-            fileData: args.fileData,
-            chatId: args.chatId,
-            projectId: args.projectId,
-            latestVersionId: args.latestVersionId,
-            demoUrl: args.demoUrl,          // ⭐ STORE IT
-            raceName: args.raceName
-        });
+        };
+        if (args.urls !== undefined) patch.urls = args.urls;
+        if (args.fileData !== undefined) patch.fileData = args.fileData;
+        if (args.chatId !== undefined) patch.chatId = args.chatId;
+        if (args.projectId !== undefined) patch.projectId = args.projectId;
+        if (args.latestVersionId !== undefined) patch.latestVersionId = args.latestVersionId;
+        if (args.demoUrl !== undefined) patch.demoUrl = args.demoUrl;
+        if (args.raceName !== undefined && args.raceName !== null) patch.raceName = args.raceName;
+
+        return await ctx.db.patch(args.workspaceId, patch);
     },
 });
 

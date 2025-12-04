@@ -3,19 +3,14 @@
 // =======================================================
 "use client";
 
-import React, { useMemo, useState, useRef } from "react";
-import {
-    SandpackProvider,
-    SandpackLayout,
-    SandpackCodeEditor,
-    SandpackFileExplorer,
-} from "@codesandbox/sandpack-react";
+import React, { useMemo, useState, useRef, useContext, useEffect } from "react";
+import { MessagesContext } from "@/context/MessagesContext";
 
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useParams } from "next/navigation";
 
-import { Loader2Icon, Download, Rocket, CheckCircle2, Copy, ExternalLink, X } from "lucide-react";
+import { Loader2Icon, Rocket, CheckCircle2, Copy, ExternalLink, X } from "lucide-react";
 import JSZip from "jszip";
 import axios from "axios";
 
@@ -78,13 +73,38 @@ export default function CodeView() {
         id ? { workspaceId: id } : "skip"
     );
 
-    const [activeTab, setActiveTab] = useState("preview");
     const [previewLoading, setPreviewLoading] = useState(false);
     const zipBlobRef = useRef(null);
     const [deploying, setDeploying] = useState(false);
     const [deployStatus, setDeployStatus] = useState("");
     const [deployedUrl, setDeployedUrl] = useState(null); // ✅ Store deployed URL
     const [copied, setCopied] = useState(false);
+    const { isGenerating } = useContext(MessagesContext);
+    const [loadingText, setLoadingText] = useState("Generating code...");
+
+    const loadingMessages = [
+        "Generating code...",
+        "Building components...",
+        "Optimizing layout...",
+        "Applying styles...",
+        "Finalizing changes..."
+    ];
+
+    useEffect(() => {
+        if (isGenerating) {
+            setLoadingText(loadingMessages[0]);
+            let i = 1;
+            const interval = setInterval(() => {
+                if (i < loadingMessages.length) {
+                    setLoadingText(loadingMessages[i]);
+                    i++;
+                } else {
+                    clearInterval(interval);
+                }
+            }, 2000);
+            return () => clearInterval(interval);
+        }
+    }, [isGenerating]);
 
     const files = useMemo(() => {
         if (!workspace) return {};
@@ -199,21 +219,7 @@ module.exports = nextConfig;
         return blob;
     };
 
-    // ------------------------------------------------------
-    // DOWNLOAD ZIP
-    // ------------------------------------------------------
-    const downloadProject = async () => {
-        const blob = await generateZip();
-        zipBlobRef.current = blob; // Store for potential deployment
 
-        // Trigger browser download
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "website.zip";
-        a.click();
-        URL.revokeObjectURL(url);
-    };
 
     // ------------------------------------------------------
     // AWS DEPLOY
@@ -246,7 +252,7 @@ module.exports = nextConfig;
             const formData = new FormData();
             formData.append("zipFile", freshBlob);
             formData.append("raceName", workspace?.raceName);
-            // console.log('race name is ' + JSON.stringify(workspace))
+            console.log('race name is ' + JSON.stringify(workspace))
 
             // DEBUG: Log FormData contents
             for (let [key, value] of formData.entries()) {
@@ -307,18 +313,10 @@ module.exports = nextConfig;
         <div>
             <div className="flex justify-between bg-black p-2">
                 <div className="flex gap-3">
-                    <button onClick={() => setActiveTab("preview")}>Preview</button>
-                    <button onClick={() => setActiveTab("code")}>Code</button>
+                    {/* Buttons removed */}
                 </div>
 
                 <div className="flex gap-2">
-                    <button
-                        onClick={downloadProject}
-                        className="bg-blue-500 px-4 py-2 text-white rounded flex items-center gap-2"
-                    >
-                        <Download size={16} /> Download
-                    </button>
-
                     <button
                         onClick={deployToAWS}
                         disabled={deploying}
@@ -385,25 +383,21 @@ module.exports = nextConfig;
                 </div>
             )}
 
-            {activeTab === "code" && (
-                <SandpackProvider
-                    files={files}
-                    template="react"
-                    theme="dark"
-                    customSetup={{
-                        dependencies: { react: "19", "react-dom": "19" },
-                    }}
-                >
-                    <SandpackLayout>
-                        <SandpackFileExplorer style={{ height: "80vh" }} />
-                        <SandpackCodeEditor style={{ height: "80vh" }} />
-                    </SandpackLayout>
-                </SandpackProvider>
-            )}
-
-            {activeTab === "preview" && (
-                <iframe src={workspace.demoUrl} className="w-full h-[80vh]" />
-            )}
+            <div className="relative w-full h-[80vh]">
+                {isGenerating && (
+                    <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-50 rounded-lg backdrop-blur-sm">
+                        <Loader2Icon className="animate-spin h-12 w-12 text-blue-500 mb-4" />
+                        <p className="text-white text-xl font-semibold animate-pulse tracking-wide">
+                            {loadingText}
+                        </p>
+                        <p className="text-gray-400 text-sm mt-2">This may take a few moments</p>
+                    </div>
+                )}
+                <iframe
+                    src={workspace.demoUrl}
+                    className={`w-full h-full rounded-lg border border-gray-800 ${isGenerating ? 'opacity-20' : 'opacity-100'} transition-opacity duration-300`}
+                />
+            </div>
         </div>
     );
 }

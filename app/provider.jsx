@@ -8,10 +8,11 @@ import { UrlsContext } from '@/context/UrlsContext';  // ✅ import it
 function Provider({ children }) {
   const [messages, setMessages] = useState([]);
   const [urls, setUrls] = useState([]);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   return (
     <div>
-      <MessagesContext.Provider value={{ messages, setMessages }}>
+      <MessagesContext.Provider value={{ messages, setMessages, isGenerating, setIsGenerating }}>
         <UrlsContext.Provider value={{ urls, setUrls }}>  {/* ✅ new provider */}
           <NextThemesProvider
             attribute="class"
