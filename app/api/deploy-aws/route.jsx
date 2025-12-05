@@ -122,7 +122,7 @@ export async function POST(req) {
             console.log("🗑️ Removed package-lock.json");
         }
 
-        execSync("npm install --legacy-peer-deps --force", {
+        execSync("npm install --legacy-peer-deps --force && npm install @tailwindcss/postcss postcss", {
             cwd: tempDir,
             stdio: "inherit",
             timeout: 5 * 60 * 1000, // 5 min timeout
