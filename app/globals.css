@@ -4,6 +4,7 @@
 
 body {
   font-family: Arial, Helvetica, sans-serif;
+  overflow: hidden; /* 🔒 Force no scroll on main page */
 }
 
 @layer base {

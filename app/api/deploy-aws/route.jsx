@@ -110,6 +110,31 @@ export async function POST(req) {
             throw new Error("❌ package.json not found in ZIP!");
         }
         console.log("✅ package.json exists");
+        // After: console.log("✅ package.json exists");
+
+        //const pkgPath = path.join(tempDir, "package.json");
+        const pkgJson = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
+
+        pkgJson.dependencies = pkgJson.dependencies || {};
+        pkgJson.devDependencies = pkgJson.devDependencies || {};
+
+        const moveToDeps = [
+            "@tailwindcss/postcss",
+            "tailwindcss",
+            "postcss",
+            "autoprefixer",
+        ];
+
+        moveToDeps.forEach((name) => {
+            if (pkgJson.devDependencies[name]) {
+                pkgJson.dependencies[name] = pkgJson.devDependencies[name];
+                delete pkgJson.devDependencies[name];
+                console.log(`✅ Moved ${name} from devDependencies to dependencies`);
+            }
+        });
+
+        fs.writeFileSync(pkgPath, JSON.stringify(pkgJson, null, 2));
+        console.log("✅ Patched package.json for Tailwind/PostCSS");
 
         // 3) Install dependencies
         console.log("Node version:", process.version);
@@ -122,11 +147,12 @@ export async function POST(req) {
             console.log("🗑️ Removed package-lock.json");
         }
 
-        execSync("npm install --legacy-peer-deps --force && npm install @tailwindcss/postcss postcss", {
+        execSync("NODE_ENV=development npm install --legacy-peer-deps --force", {
             cwd: tempDir,
             stdio: "inherit",
-            timeout: 5 * 60 * 1000, // 5 min timeout
+            timeout: 5 * 60 * 1000,
         });
+
 
         console.log("✅ Dependencies installed");
 
@@ -226,7 +252,7 @@ export async function POST(req) {
             { status: 500 }
         );
     } finally {
-        // // Cleanup temp directory
+
         // if (tempDir && fs.existsSync(tempDir)) {
         //     try {
         //         fs.rmSync(tempDir, { recursive: true, force: true });

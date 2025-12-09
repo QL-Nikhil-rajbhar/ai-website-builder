@@ -91,6 +91,9 @@ ${images.join("\n")}
             .replace(/<CodeProject[^>]*>/g, '')
             .replace(/<\/CodeProject>/g, '')
             .replace(/``````/g, '')
+            .replace(/\.\.\.\s*shell\s*\.\.\./gi, '')
+            .replace(/\.\.\.\s*console\s*\.\.\./gi, '')
+            .replace(/```[\s\S]*?```/g, '') // Remove any remaining code blocks
             .trim()
 
 
