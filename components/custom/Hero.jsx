@@ -23,8 +23,7 @@ import {
     Plus,
 } from "lucide-react";
 import axios from "axios";
-import { useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { workspaceApi } from "@/lib/workspaceApi";
 import { useRouter } from "next/navigation";
 import { MessagesContext } from "@/context/MessagesContext";
 import { UrlsContext } from "@/context/UrlsContext";
@@ -43,7 +42,6 @@ const AVAILABLE_SECTIONS = [
 
 export default function Hero() {
     const router = useRouter();
-    const CreateWorkspace = useMutation(api.workspace.CreateWorkspace);
     const { messages, setMessages } = useContext(MessagesContext);
     const { urls, setUrls } = useContext(UrlsContext);
 
@@ -401,9 +399,9 @@ Based on the race details and user preferences above, generate a professional ra
             setMessages(rawMessages);
             setUrls(allUrls);
 
-            const workspaceId = await CreateWorkspace({
-                messages: rawMessages,
-                urls: allUrls,
+            const workspaceData = await workspaceApi.createWorkspace({
+                messages: rawMessages, // ✅ Only raw chat messages
+                urls: uploadedImageUrls,
                 files: data.files,
                 chatId: data.chatId,
                 demoUrl: data.demoUrl,
@@ -411,6 +409,10 @@ Based on the race details and user preferences above, generate a professional ra
                 latestVersionId: data.latestVersionId,
                 raceName: data.raceName,
             });
+
+            const workspaceId = workspaceData._id || workspaceData.id || workspaceData.data?._id || workspaceData.data?.id; // Handle various response structures
+            console.log("Workspace Creation Response:", workspaceData);
+            console.log("Extracted Workspace ID:", workspaceId);
 
             router.push("/workspace/" + workspaceId);
         } catch (err) {

@@ -5,9 +5,16 @@
 
 import React, { useMemo, useState, useRef, useContext, useEffect } from "react";
 import { MessagesContext } from "@/context/MessagesContext";
+import React, { useMemo, useState, useRef, useContext } from "react";
+import { WorkspaceContext } from "@/context/WorkspaceContext";
+import {
+    SandpackProvider,
+    SandpackLayout,
+    SandpackCodeEditor,
+    SandpackFileExplorer,
+} from "@codesandbox/sandpack-react";
 
-import { useMutation, useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { workspaceApi } from "@/lib/workspaceApi";
 import { useParams } from "next/navigation";
 
 import { Loader2Icon, Rocket, CheckCircle2, Copy, ExternalLink, X } from "lucide-react";
@@ -68,10 +75,14 @@ export function Card({ className, ...props }) {
 // ------------------------------------------------------
 export default function CodeView() {
     const { id } = useParams();
-    const workspace = useQuery(
-        api.workspace.GetWorkspace,
-        id ? { workspaceId: id } : "skip"
-    );
+    const [workspace, setWorkspace] = useState(null);
+    const { isDeploying, refreshTrigger } = useContext(WorkspaceContext);
+
+    React.useEffect(() => {
+        if (id) {
+            workspaceApi.getWorkspace(id).then(setWorkspace).catch(console.error);
+        }
+    }, [id, refreshTrigger]);
 
     const [previewLoading, setPreviewLoading] = useState(false);
     const zipBlobRef = useRef(null);
@@ -383,21 +394,37 @@ module.exports = nextConfig;
                 </div>
             )}
 
-            <div className="relative w-full h-[80vh]">
-                {isGenerating && (
-                    <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-50 rounded-lg backdrop-blur-sm">
-                        <Loader2Icon className="animate-spin h-12 w-12 text-blue-500 mb-4" />
-                        <p className="text-white text-xl font-semibold animate-pulse tracking-wide">
-                            {loadingText}
-                        </p>
-                        <p className="text-gray-400 text-sm mt-2">This may take a few moments</p>
-                    </div>
-                )}
-                <iframe
-                    src={workspace.demoUrl}
-                    className={`w-full h-full rounded-lg border border-gray-800 ${isGenerating ? 'opacity-20' : 'opacity-100'} transition-opacity duration-300`}
-                />
-            </div>
+            {activeTab === "code" && (
+                <SandpackProvider
+                    files={files}
+                    template="react"
+                    theme="dark"
+                    customSetup={{
+                        dependencies: { react: "19", "react-dom": "19" },
+                    }}
+                >
+                    <SandpackLayout>
+                        <SandpackFileExplorer style={{ height: "80vh" }} />
+                        <SandpackCodeEditor style={{ height: "80vh" }} />
+                    </SandpackLayout>
+                </SandpackProvider>
+            )}
+
+            {activeTab === "preview" && (
+                <div className="relative w-full h-[80vh]">
+                    {isDeploying && (
+                        <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center z-50">
+                            <Loader2Icon className="animate-spin h-12 w-12 text-blue-400" />
+                            <p className="text-white mt-4 text-lg font-semibold">Editing...</p>
+                        </div>
+                    )}
+                    <iframe
+                        key={refreshTrigger} // Force iframe reload on refresh
+                        src={workspace.demoUrl}
+                        className="w-full h-full"
+                    />
+                </div>
+            )}
         </div>
     );
 }

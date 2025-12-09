@@ -20,7 +20,6 @@
     "axios": "^1.7.9",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "convex": "^1.18.2",
     "dedent": "^1.5.3",
     "fs": "^0.0.1-security",
     "jszip": "^3.10.1",
