@@ -3,9 +3,9 @@
 import { useContext, useEffect, useState, useRef } from "react";
 import { MessagesContext } from "@/context/MessagesContext";
 import { UrlsContext } from "@/context/UrlsContext";
+import { WorkspaceContext } from "@/context/WorkspaceContext";
 import { useParams } from "next/navigation";
-import { useConvex, useMutation } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { workspaceApi } from "@/lib/workspaceApi";
 import { Loader2Icon, Send } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import axios from "axios";
@@ -19,14 +19,11 @@ import axios from "axios";
 
 export default function ChatView() {
     const { id } = useParams();
-    const convex = useConvex();
 
-    const { messages: ctxMessages, setMessages: ctxSetMessages, setIsGenerating } =
-        useContext(MessagesContext);
+
+    const { messages: ctxMessages, setMessages: ctxSetMessages, setIsGenerating } = useContext(MessagesContext);
     const { urls } = useContext(UrlsContext);
-
-    const UpdateWorkspace = useMutation(api.workspace.UpdateWorkspace);
-    const UpdateFiles = useMutation(api.workspace.UpdateFiles);
+    const { setIsDeploying, triggerRefresh } = useContext(WorkspaceContext);
 
     const [files, setFiles] = useState({});
     const [chatId, setChatId] = useState(null);
@@ -51,9 +48,7 @@ export default function ChatView() {
 
         (async () => {
             try {
-                const res = await convex.query(api.workspace.GetWorkspace, {
-                    workspaceId: id,
-                });
+                const res = await workspaceApi.getWorkspace(id);
 
                 setMessages(res?.messages || []);
                 setFiles(res?.fileData || {});
@@ -109,6 +104,7 @@ export default function ChatView() {
 
         setLoading(true);
         setIsGenerating(true);
+        setIsDeploying(true);
 
         try {
             const payload = {
@@ -118,7 +114,7 @@ export default function ChatView() {
             };
 
             const editRes = await axios.post("/api/edit-code", payload, {
-                timeout: 120000,
+                timeout: 5 * 120000,
             });
             console.log("editreponse is" + JSON.stringify(editRes))
 
@@ -128,7 +124,7 @@ export default function ChatView() {
                 const updatedFiles = { ...files, ...changedFiles };
                 setFiles(updatedFiles);
 
-                await UpdateFiles({
+                await workspaceApi.updateFiles({
                     workspaceId: id,
                     files: updatedFiles,
                 });
@@ -142,7 +138,7 @@ export default function ChatView() {
             const newMessages = [...uiMessagesSnapshot, aiMessage];
             setMessages(newMessages);
 
-            await UpdateWorkspace({
+            await workspaceApi.updateWorkspace({
                 workspaceId: id,
                 messages: [...dbMessagesSnapshot, aiMessage],
                 chatId,
@@ -163,13 +159,15 @@ export default function ChatView() {
             const updated = [...uiMessagesSnapshot, errorMsg];
             setMessages(updated);
 
-            await UpdateWorkspace({
+            await workspaceApi.updateWorkspace({
                 workspaceId: id,
                 messages: [...dbMessagesSnapshot, errorMsg],
             });
         } finally {
             setLoading(false);
             setIsGenerating(false);
+            setIsDeploying(false);
+            triggerRefresh();
         }
     }
 
@@ -196,7 +194,7 @@ export default function ChatView() {
         setMessages(updatedUiMessages);
 
         // Store message (with hidden image URLs)
-        await UpdateWorkspace({
+        await workspaceApi.updateWorkspace({
             workspaceId: id,
             messages: updatedDbMessages,
         });

@@ -6,8 +6,8 @@
 import React, { useMemo, useState, useRef, useContext, useEffect } from "react";
 import { MessagesContext } from "@/context/MessagesContext";
 
-import { useMutation, useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
+import { workspaceApi } from "@/lib/workspaceApi";
+import { WorkspaceContext } from "@/context/WorkspaceContext";
 import { useParams } from "next/navigation";
 
 import { Loader2Icon, Rocket, CheckCircle2, Copy, ExternalLink, X } from "lucide-react";
@@ -68,10 +68,14 @@ export function Card({ className, ...props }) {
 // ------------------------------------------------------
 export default function CodeView() {
     const { id } = useParams();
-    const workspace = useQuery(
-        api.workspace.GetWorkspace,
-        id ? { workspaceId: id } : "skip"
-    );
+    const [workspace, setWorkspace] = useState(null);
+    const { refreshTrigger } = useContext(WorkspaceContext);
+
+    useEffect(() => {
+        if (id) {
+            workspaceApi.getWorkspace(id).then(setWorkspace).catch(console.error);
+        }
+    }, [id, refreshTrigger]);
 
     const [previewLoading, setPreviewLoading] = useState(false);
     const zipBlobRef = useRef(null);
@@ -263,7 +267,7 @@ module.exports = nextConfig;
             console.log("🚀 Sending to API...");
 
             const deployRes = await axios.post("/api/deploy-aws", formData, {
-                timeout: 120000, // 2 min timeout
+                timeout: 5 * 120000, // 2 min timeout
             });
 
             console.log("✅ API Response:", deployRes.data);
