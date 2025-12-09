@@ -97,7 +97,7 @@ ${images.join("\n")}
             .trim()
 
 
-        console.log("extracted text is" + JSON.stringify(extractedText))
+        // console.log("extracted text is" + JSON.stringify(extractedText))
 
         // ⭐ Return like gen-ai-code
         return NextResponse.json({
