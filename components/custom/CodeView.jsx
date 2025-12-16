@@ -283,6 +283,12 @@ module.exports = nextConfig;
             setDeployStatus("");
             setDeployedUrl(url);
 
+            // ✅ Save deployed URL to workspace
+            await workspaceApi.updateWorkspace({
+                workspaceId: id,
+                deployed_url: url
+            });
+
         } catch (err) {
             console.error("❌ AWS deploy error:", err);
             console.error("Error response:", err.response?.data);

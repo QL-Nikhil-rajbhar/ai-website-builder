@@ -75,11 +75,11 @@ export async function POST(req) {
             subdomain = `site-${timestamp}`;
         }
 
-        console.log("🚀 Deploying subdomain:", subdomain);
+        // console.log("🚀 Deploying subdomain:", subdomain);
 
         // 1) Create temp directory
         tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "deploy-"));
-        console.log("📁 Created temp dir:", tempDir);
+        // console.log("📁 Created temp dir:", tempDir);
 
         // 2) Extract ZIP
         const JSZip = (await import("jszip")).default;
@@ -253,13 +253,13 @@ export async function POST(req) {
         );
     } finally {
 
-        // if (tempDir && fs.existsSync(tempDir)) {
-        //     try {
-        //         fs.rmSync(tempDir, { recursive: true, force: true });
-        //         console.log("🧹 Cleaned up temp dir");
-        //     } catch (cleanupErr) {
-        //         console.error("⚠️ Cleanup error:", cleanupErr);
-        //     }
-        // }
+        if (tempDir && fs.existsSync(tempDir)) {
+            try {
+                fs.rmSync(tempDir, { recursive: true, force: true });
+                console.log("🧹 Cleaned up temp dir");
+            } catch (cleanupErr) {
+                console.error("⚠️ Cleanup error:", cleanupErr);
+            }
+        }
     }
 }
